@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indicadores Estratégicos · People Strategy</title>
+    
+    <!-- Bibliotecas Externas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos específicos: nenhum no momento, usando styles.css comum */
+    </style>
+</head>
+<body>
+
+<!-- ============ SPLASH SCREEN ============ -->
+<div id="splash-screen" class="splash-screen splash-orange">
+    <div class="splash-blob-tl"></div>
+    <div class="splash-blob-br"></div>
+    
+    <a href="hub.html" class="splash-back-link"><i class="ph ph-house"></i> Voltar ao Hub</a>
+    
+    <div class="splash-content">
+        <div class="splash-logo">
+            <i class="ph-fill ph-squares-four"></i>
+        </div>
+        <h1 class="splash-title">Indicadores Estratégicos</h1>
+        <p class="splash-subtitle">People Analytics</p>
+        <p class="splash-tagline">
+            <strong>Sua base, seus indicadores.</strong><br>
+            Carregue os arquivos abaixo para gerar a visão consolidada de Headcount, Workforce, Compensação, Retenção e mais.
+        </p>
+        
+        <div class="splash-uploads">
+            <label class="splash-upload-card" id="card-1">
+                <input type="file" id="file-1" accept=".xlsx" onchange="markLoaded('card-1')">
+                <i class="ph ph-check-circle splash-upload-check"></i>
+                <div class="splash-upload-icon"><i class="ph-fill ph-database"></i></div>
+                <div class="splash-upload-title">Carregue a base principal</div>
+                <div class="splash-upload-desc">Headcount, admitidos, desligamentos e movimentações</div>
+            </label>
+            <label class="splash-upload-card" id="card-2">
+                <input type="file" id="file-2" accept=".xlsx" onchange="markLoaded('card-2')">
+                <i class="ph ph-check-circle splash-upload-check"></i>
+                <div class="splash-upload-icon"><i class="ph-fill ph-files"></i></div>
+                <div class="splash-upload-title">Carregue a base complementar</div>
+                <div class="splash-upload-desc">Workforce, compensação, vagas abertas</div>
+            </label>
+        </div>
+        
+        <button class="splash-process-btn" onclick="processFiles()">
+            <span id="btn-text">Acessar Dashboard</span>
+            <i class="ph ph-arrow-right" id="btn-icon"></i>
+            <i class="ph ph-spinner animate-spin hidden" id="spinner"></i>
+        </button>
+        
+        <div class="splash-privacy-note">
+            <i class="ph-fill ph-lock-key"></i>
+            <span><strong>Privacidade garantida.</strong> Seus dados são processados localmente no seu navegador. Nada é armazenado ou enviado para servidores.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<main class="main-content" id="main-app" style="display: none;">
+    
+    <!-- STICKY HEADER STACK -->
+    <div class="header-stack">
+        
+        <!-- TOP BAR: Brand + Actions -->
+        <header class="top-bar">
+            <div class="brand-mini">
+                <a href="hub.html" style="display:flex; align-items:center; gap:0.7rem; text-decoration:none; color:inherit;">
+                    <div class="brand-mini-logo" style="background: linear-gradient(135deg, #FB923C 0%, #F97316 100%);">
+                        <i class="ph-fill ph-squares-four"></i>
+                    </div>
+                    <div class="brand-mini-text">
+                        <h1>Indicadores Estratégicos</h1>
+                        <p style="color: #F97316;">People Analytics</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="exportFullReport()" class="btn-exec">
+                    <i class="ph ph-microsoft-excel-logo" style="color: #059669; font-size: 1.05rem;"></i>
+                    <span>Exportar Deepdive</span>
+                </button>
+                <a href="hub.html" class="btn-exec btn-exec-primary" style="background:#F97316; border-color:#F97316;">
+                    <i class="ph-fill ph-house"></i>
+                    <span>Voltar ao Hub</span>
+                </a>
+            </div>
+        </header>
+        
+        <!-- FILTERS AREA -->
+        <div class="filters-area">
+            <!-- SELETOR DE PERÍODO -->
+            <div class="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    <i class="ph ph-calendar" style="color:#F97316; font-size:1rem;"></i>
+                    Período de análise:
+                </div>
+                <select id="periodo-select" onchange="handlePeriodoChange(this.value)"
+                    class="text-xs font-semibold border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 cursor-pointer transition"
+                    style="outline:none; min-width:160px;">
+                    <option value="ALL">Todos os períodos</option>
+                </select>
+                <span class="text-[10px] text-slate-400 italic" id="periodo-info"></span>
+            </div>
+            <div class="filters-label">
+                <i class="ph ph-faders"></i> Filtros de Dimensão
+            </div>
+            <div id="filter-bar" class="flex flex-wrap gap-2 items-center relative"></div>
+        </div>
+        
+        <!-- TAB NAVIGATION -->
+        <nav class="tab-nav">
+            <div onclick="switchTab('exec')" id="nav-exec" class="tab-item active">
+                <i class="ph ph-squares-four"></i> <span>Visão Executiva</span>
+            </div>
+            <div onclick="switchTab('adm')" id="nav-adm" class="tab-item">
+                <i class="ph ph-user-plus"></i> <span>Admitidos</span>
+            </div>
+            <div onclick="switchTab('vagas')" id="nav-vagas" class="tab-item">
+                <i class="ph ph-briefcase"></i> <span>Posições Abertas</span>
+            </div>
+            <div onclick="switchTab('work')" id="nav-work" class="tab-item">
+                <i class="ph ph-users-three"></i> <span>Workforce</span>
+            </div>
+            <div onclick="switchTab('comp')" id="nav-comp" class="tab-item">
+                <i class="ph ph-currency-circle-dollar"></i> <span>Compensação</span>
+            </div>
+            <div onclick="switchTab('ret')" id="nav-ret" class="tab-item">
+                <i class="ph ph-heart-break"></i> <span>Retenção</span>
+            </div>
+            <div onclick="switchTab('mov')" id="nav-mov" class="tab-item">
+                <i class="ph ph-arrows-left-right"></i> <span>Movimentação</span>
+            </div>
+            <div onclick="switchTab('lid')" id="nav-lid" class="tab-item">
+                <i class="ph ph-medal"></i> <span>Liderança</span>
+            </div>
+            <div onclick="switchTab('gloss')" id="nav-gloss" class="tab-item tab-gloss">
+                <i class="ph ph-book-bookmark"></i> <span>Glossário</span>
+            </div>
+        </nav>
+    </div>
+    
+    <!-- DASHBOARD SCROLL AREA -->
+    <div class="dashboard-scroll">
+        
+        <div class="max-w-[1600px] mx-auto">
+            
+            <!-- 1. EXECUTIVA -->
+            <div id="view-exec" class="view-section space-y-4">
+                <div class="page-header">
+                    <h2>People Analytics <span style="color:#94A3B8; font-weight:400;">|</span> <span style="font-size:1rem; font-weight:500; color:#64748B;">Dashboard Executivo</span></h2>
+                    <p>Dados que antecipam decisões. Pessoas que geram resultados.</p>
+                </div>
+                
+                <!-- ALERTAS AUTOMÁTICOS -->
+                <div id="exec-alerts-container" class="space-y-2" style="display:none;"></div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--primary-light); color: var(--primary);"><i class="ph ph-users"></i></div>
+                            <div class="kpi-exec-label">Headcount</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--primary);" id="exec-hc">-</div>
+                        <div class="kpi-exec-comp" id="exec-hc-sub">Média Período</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--accent-light); color: var(--accent);"><i class="ph ph-user-plus"></i></div>
+                            <div class="kpi-exec-label">Contratações</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--accent);" id="exec-hires">-</div>
+                        <div class="kpi-exec-comp">No período</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--danger-light); color: var(--danger);"><i class="ph ph-arrows-clockwise"></i></div>
+                            <div class="kpi-exec-label">Turnover Geral</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--danger);" id="exec-turn">-</div>
+                        <div class="kpi-exec-comp">Média Móvel 3M</div>
+                        <p class="text-[9px] text-slate-400 mt-1 italic" id="exec-turn-avg-msg"></p>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--purple-light); color: var(--purple);"><i class="ph ph-hourglass"></i></div>
+                            <div class="kpi-exec-label">Tempo de Casa</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--purple);" id="exec-tenure">-</div>
+                        <div class="kpi-exec-comp">Anos (Mediana)</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--success-light); color: var(--success);"><i class="ph ph-tree-structure"></i></div>
+                            <div class="kpi-exec-label">Span of Control</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--success);" id="exec-span">-</div>
+                        <div class="kpi-exec-comp">Reportes / Líder</div>
+                        <p class="text-[9px] text-slate-400 mt-1 italic" id="exec-span-msg"></p>
+                    </div>
+                </div>
+                
+                <div class="section-block">
+                    <div class="section-title"><span class="section-number">1.</span> EVOLUÇÃO HEADCOUNT (12 MESES)</div>
+                    <div class="h-72"><canvas id="chart-hc-evo"></canvas></div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">2.</span> DISTRIBUIÇÃO POR NÍVEL</div>
+                        <div class="h-64"><canvas id="chart-layers"></canvas></div>
+                        <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                            <span class="badge badge-indigo">Estratégico (12+)</span>
+                            <span class="badge badge-indigo">Tático (09-11)</span>
+                            <span class="badge badge-indigo">Operacional (≤08)</span>
+                        </div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">3.</span> COMPA-RATIO (COMPETITIVIDADE)</div>
+                        <div class="h-64 flex justify-center"><canvas id="chart-compa-donut"></canvas></div>
+                    </div>
+                </div>
+                
+                <div class="insight-bar">
+                    <i class="ph ph-lightbulb"></i>
+                    <p><strong>INSIGHT PRINCIPAL:</strong> Dashboard consolidado dos principais indicadores de Capital Humano. Use os filtros globais no topo para navegar por área, país, unidade, grade ou período de referência.</p>
+                </div>
+            </div>
+            
+            <!-- 1.5 ADMITIDOS -->
+            <div id="view-adm" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Admitidos</h2>
+                    <p>Análise detalhada de novas contratações no período.</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--accent-light); color: var(--accent);"><i class="ph ph-user-plus"></i></div>
+                            <div class="kpi-exec-label">Total Admitidos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--accent);" id="adm-total">-</div>
+                        <div class="kpi-exec-comp">No período (Desduplicado)</div>
+                    </div>
+                    <div class="section-block col-span-2">
+                        <div class="section-title"><span class="section-number">1.</span> ADMISSÕES POR MÊS</div>
+                        <div class="h-56"><canvas id="chart-adm-trend"></canvas></div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">2.</span> ANALÍTICO DE ADMISSÕES</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('adm-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('adm-table', 'Analitico_Admitidos')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="adm-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Mês Referência</th>
+                                    <th>Unidade Org.</th>
+                                    <th>Nome</th>
+                                    <th>Cargo</th>
+                                    <th>Data Admissão</th>
+                                    <th>Tempo Empresa</th>
+                                    <th>HRBP</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 1.7 POSIÇÕES ABERTAS (NOVO) -->
+            <div id="view-vagas" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Posições Abertas</h2>
+                    <p>Visão consolidada de vagas em aberto, status e origem.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--primary-light); color: var(--primary);"><i class="ph ph-briefcase"></i></div>
+                            <div class="kpi-exec-label">Total Vagas Abertas</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--primary);" id="vagas-total">-</div>
+                        <div class="kpi-exec-comp" id="vagas-total-sub">No período</div>
+                    </div>
+                    <div class="section-block col-span-2">
+                        <div class="section-title"><span class="section-number">1.</span> VAGAS POR ÁREA</div>
+                        <div id="vagas-by-area" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                    </div>
+                </div>
+                
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">2.</span> ANALÍTICO DE POSIÇÕES</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('vagas-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('vagas-table', 'Posicoes_Abertas')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="vagas-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Origem</th>
+                                    <th>Área</th>
+                                    <th>Cargo</th>
+                                    <th>Grade</th>
+                                    <th>Posição</th>
+                                    <th>Orçada</th>
+                                    <th>Status</th>
+                                    <th>Comentário</th>
+                                    <th>HRBP</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2. WORKFORCE -->
+            <div id="view-work" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Workforce Planning</h2>
+                    <div class="flex items-center gap-3 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg max-w-3xl">
+                        <i class="ph ph-info text-blue-600 text-base"></i>
+                        <p class="text-xs text-blue-900">Dados baseados em janelas de Orçamento e Forecast. Apenas colaboradores efetivos.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec" style="border-top: 3px solid var(--text-muted);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">HC Orçado (Plan)</div>
+                        <div class="kpi-exec-number" style="color: var(--text-secondary);" id="wf-orc">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--success);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">YTD Realizado (Orç)</div>
+                        <div class="kpi-exec-number" style="color: var(--success);" id="wf-ytd-orc">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--danger);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">HC Não Orçado</div>
+                        <div class="kpi-exec-number" style="color: var(--danger);" id="wf-norc">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--primary);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">Total Geral</div>
+                        <div class="kpi-exec-number" style="color: var(--primary);" id="wf-total">-</div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">1.</span> POSIÇÃO DE VAGAS (GAP ANALYSIS)</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar unidade, área..." class="search-input" onkeyup="searchTable('wf-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('wf-table', 'Workforce_Gap')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="wf-table" class="modern-table">
+                            <thead><tr><th>Unidade</th><th>Área</th><th>CECO</th><th>HC Orç.</th><th>YTD Orç.</th><th>HC N. Orç.</th><th>YTD N. Orç.</th><th>Total HC</th><th>Total YTD</th><th>Gap</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3. COMPENSAÇÃO -->
+            <div id="view-comp" class="view-section hidden space-y-4">
+                <div class="page-header flex justify-between items-end">
+                    <div>
+                        <h2>Compensação</h2>
+                        <p>Análise de competitividade salarial e equidade.</p>
+                    </div>
+                    <span class="bg-amber-50 text-amber-800 px-3 py-1.5 rounded-md text-[10px] font-semibold border border-amber-200 uppercase tracking-wide flex items-center gap-2">
+                        <i class="ph ph-lock-key"></i> Confidencial
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--purple-light); color: var(--purple);"><i class="ph ph-currency-circle-dollar"></i></div>
+                            <div class="kpi-exec-label">Mediana Compa-Ratio</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--purple);" id="comp-mediana">-</div>
+                        <div class="kpi-exec-comp">Target: 100%</div>
+                    </div>
+                    <div class="kpi-exec col-span-2">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--success-light); color: var(--success);"><i class="ph ph-target"></i></div>
+                            <div class="kpi-exec-label">Aderência à Faixa (Distribuição Geral)</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 divide-x divide-slate-100 mt-1">
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1">Abaixo de 80%</span>
+                                <div class="flex items-baseline gap-2"><span class="text-2xl font-bold text-red-600" id="comp-abaixo-pct">-%</span><span class="text-xs text-slate-400" id="comp-abaixo-abs">(-)</span></div>
+                            </div>
+                            <div class="pl-4">
+                                <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1">80% - 120%</span>
+                                <div class="flex items-baseline gap-2"><span class="text-2xl font-bold text-emerald-600" id="comp-dentro-pct">-%</span><span class="text-xs text-slate-400" id="comp-dentro-abs">(-)</span></div>
+                            </div>
+                            <div class="pl-4">
+                                <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1">Acima de 120%</span>
+                                <div class="flex items-baseline gap-2"><span class="text-2xl font-bold text-blue-600" id="comp-acima-pct">-%</span><span class="text-xs text-slate-400" id="comp-acima-abs">(-)</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> CORRELAÇÃO: TEMPO X SALÁRIO</div>
+                        <div class="h-64"><canvas id="chart-comp-scatter"></canvas></div>
+                        <p class="scat-footer" id="scat-footer-info"></p>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">2.</span> MATRIZ: GRADE X FAIXA</div>
+                        <div class="h-64 overflow-auto rounded-lg border border-slate-100">
+                            <table class="w-full text-xs" id="comp-heatmap"></table>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">3.</span> ANALÍTICO DE COMPENSAÇÃO</div>
+                        <div class="table-toolbar-actions">
+                            <div class="pill-group">
+                                <button class="active" onclick="filterCompTable('ALL')" id="btn-comp-all">Todos</button>
+                                <button onclick="filterCompTable('LOW')" id="btn-comp-low">Abaixo 80%</button>
+                                <button onclick="filterCompTable('MID')" id="btn-comp-mid">80-120%</button>
+                                <button onclick="filterCompTable('HIGH')" id="btn-comp-high">Acima 120%</button>
+                            </div>
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('comp-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('comp-table', 'Analitico_Compensacao')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="comp-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Mês Ref.</th>
+                                    <th>Unidade Org</th>
+                                    <th>Nome</th>
+                                    <th>Cargo</th>
+                                    <th>Data Adm</th>
+                                    <th>Tempo Emp</th>
+                                    <th>Compa-Ratio</th>
+                                    <th>Categoria</th>
+                                    <th>HRBP</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 4. RETENÇÃO -->
+            <div id="view-ret" class="view-section hidden space-y-4">
+                <div class="page-header flex justify-between items-center">
+                    <div>
+                        <h2>Retenção & Turnover</h2>
+                        <p>Monitoramento de saídas voluntárias e involuntárias.</p>
+                    </div>
+                    <div class="pill-group">
+                        <button class="active" id="btn-ret-all" onclick="updateRetention('ALL')">Todos</button>
+                        <button id="btn-ret-vol" onclick="updateRetention('VOL')">Voluntário</button>
+                        <button id="btn-ret-inv" onclick="updateRetention('INV')">Involuntário</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec" style="border-top: 3px solid var(--danger);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">Total Desligados</div>
+                        <div class="kpi-exec-number" style="color: var(--danger);" id="ret-total">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--warning);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">Turnover Geral</div>
+                        <div class="kpi-exec-number" style="color: var(--warning);" id="ret-turn">-</div>
+                        <div class="kpi-exec-comp">Média Móvel 3M</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid #EAB308;">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">Longevidade Média</div>
+                        <div class="kpi-exec-number" style="color: #CA8A04;" id="ret-tenure">-</div>
+                        <div class="kpi-exec-comp">Anos</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--purple);">
+                        <div class="kpi-exec-label" style="margin-bottom: 0.5rem;">Perda Talento Crítico</div>
+                        <div class="flex items-baseline gap-2">
+                            <div class="kpi-exec-number" style="color: var(--purple);" id="ret-crit">-</div>
+                            <span class="text-sm text-red-600 font-semibold" id="ret-crit-pct">-%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> TOP 3 MOTIVOS</div>
+                        <div id="ret-top3" class="space-y-3"></div>
+                    </div>
+                    <div class="section-block col-span-2">
+                        <div class="section-title"><span class="section-number">2.</span> MOTIVOS DE SAÍDA (PARETO)</div>
+                        <div class="h-64"><canvas id="chart-ret-reasons"></canvas></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">3.</span> TIPO DE SAÍDA</div>
+                        <div class="h-56 flex justify-center"><canvas id="chart-ret-type"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">4.</span> QUEM SAIU? (COMPA RATIO)</div>
+                        <div class="h-56"><canvas id="chart-ret-profile"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">5.</span> PERFORMANCE DOS DESLIGADOS</div>
+                        <div class="h-56 flex justify-center"><canvas id="chart-ret-perf"></canvas></div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">6.</span> ANALÍTICO DE DESLIGAMENTOS</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('ret-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('ret-table', 'Analitico_Desligamentos')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="ret-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Área</th>
+                                    <th>Motivo</th>
+                                    <th>Tipo Saída</th>
+                                    <th>Tempo de Casa</th>
+                                    <th>Performance</th>
+                                    <th>HRBP</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5. MOVIMENTAÇÃO -->
+            <div id="view-mov" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Movimentação Interna</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--purple-light); color: var(--purple);"><i class="ph ph-arrows-left-right"></i></div>
+                            <div class="kpi-exec-label">Total Movimentos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--purple);" id="mov-total">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: #FEF3C7; color: #D97706;"><i class="ph ph-star"></i></div>
+                            <div class="kpi-exec-label">Talentos Críticos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: #D97706;" id="mov-crit">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--success-light); color: var(--success);"><i class="ph ph-plant"></i></div>
+                            <div class="kpi-exec-label">Sucessores Movidos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--success);" id="mov-succ">-</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> TIPO DE MOVIMENTO</div>
+                        <ul id="mov-list-type" class="space-y-3 text-sm text-slate-600"></ul>
+                    </div>
+                    <div class="section-block col-span-2">
+                        <div class="section-title"><span class="section-number">2.</span> TENDÊNCIA MENSAL</div>
+                        <div class="h-64"><canvas id="chart-mov-trend"></canvas></div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">3.</span> ANALÍTICO DE MOVIMENTOS</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('mov-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('mov-table', 'Analitico_Movimentos')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100 mb-3">
+                        <table id="mov-table" class="modern-table">
+                            <thead><tr><th>Data</th><th>Nome</th><th>Talento</th><th>Tipo</th><th>Cargo Novo</th><th>HRBP</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="flex flex-wrap gap-5 text-[11px] text-slate-500 font-medium mt-3">
+                        <span class="flex items-center gap-2"><i class="ph ph-trend-up text-purple-600"></i> Promoção</span>
+                        <span class="flex items-center gap-2"><i class="ph ph-medal text-orange-500"></i> Mérito</span>
+                        <span class="flex items-center gap-2"><i class="ph ph-arrows-left-right text-blue-500"></i> Lateral</span>
+                        <span class="flex items-center gap-2"><i class="ph ph-star text-amber-400"></i> Talento Crítico</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 6. LIDERANÇA -->
+            <div id="view-lid" class="view-section hidden space-y-4">
+                <div class="page-header flex justify-between items-center">
+                    <h2>Liderança</h2>
+                    <button id="btn-grade12" class="btn-exec" onclick="toggleGrade12()">
+                        <i id="icon-grade12" class="ph ph-square"></i> <span>Apenas Grade 12+</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec" style="border-top: 3px solid #EC4899;">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: #FCE7F3; color: #DB2777;"><i class="ph ph-heart"></i></div>
+                            <div class="kpi-exec-label">Ação Cultura</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: #DB2777;" id="lid-cult">-</div>
+                        <div class="kpi-exec-comp" id="lid-cult-pct">-%</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid #F59E0B;">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: #FEF3C7; color: #D97706;"><i class="ph ph-star"></i></div>
+                            <div class="kpi-exec-label">Líderes Críticos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: #D97706;" id="lid-crit">-</div>
+                        <div class="kpi-exec-comp" id="lid-crit-pct">-%</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--success);">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--success-light); color: var(--success);"><i class="ph ph-check-circle"></i></div>
+                            <div class="kpi-exec-label">PDI em Sistema</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--success);" id="lid-pdi">-</div>
+                        <div class="kpi-exec-comp" id="lid-pdi-pct">-%</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--primary);">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--primary-light); color: var(--primary);"><i class="ph ph-plant"></i></div>
+                            <div class="kpi-exec-label">Leader2Grow</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--primary);" id="lid-l2g">-</div>
+                        <div class="kpi-exec-comp" id="lid-l2g-pct">-%</div>
+                    </div>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 p-4 rounded-lg flex items-start gap-3">
+                    <i class="ph ph-warning-circle text-amber-600 text-xl mt-0.5"></i>
+                    <div>
+                        <h3 class="text-sm font-semibold text-amber-900 mb-2">Atenção: Líderes Críticos SEM PDI</h3>
+                        <div class="flex flex-wrap gap-2" id="lid-alert-list"></div>
+                    </div>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><span class="section-number">1.</span> ANALÍTICO LIDERANÇA</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('lid-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('lid-table', 'Analitico_Lideranca')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100 mb-3">
+                        <table id="lid-table" class="modern-table">
+                            <thead><tr><th>Nome</th><th>Área</th><th>Grade</th><th>Crítico</th><th>PDI</th><th>Cultura</th><th>L2G (Elegibilidade)</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="flex flex-wrap gap-5 text-[11px] text-slate-500 font-medium">
+                        <span class="flex items-center gap-2"><span class="status-dot status-yes"></span> Sim/Participou</span>
+                        <span class="flex items-center gap-2"><span class="status-dot status-no"></span> Não/NA</span>
+                        <span class="flex items-center gap-2"><i class="ph ph-prohibit text-slate-400"></i> Não Elegível</span>
+                        <span class="flex items-center gap-2"><i class="ph ph-star text-amber-400"></i> Talento</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 8. GLOSSÁRIO -->
+            <div id="view-gloss" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Glossário & Conceitos</h2>
+                    <p>Guia de referência rápida para indicadores, fórmulas e simbologia.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="section-block">
+                        <div class="flex items-center gap-3 mb-4">
+                            <i class="ph ph-calculator text-blue-700 text-xl"></i>
+                            <h3 class="font-semibold text-slate-900 text-base">Cálculos & Definições</h3>
+                        </div>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="flex flex-col gap-1">
+                                <span class="font-semibold text-blue-700 text-sm">Headcount (HC)</span>
+                                <span>Média do total de ativos no período selecionado.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-orange-600 text-sm">Turnover Geral (Média 3M)</span>
+                                <span>(Total Desligados / HC Médio) * 100.</span>
+                                <span class="bg-orange-50 p-2 rounded text-orange-800 italic mt-1 border border-orange-100">Conceito de Fluxo: Este indicador apoia a tomada de decisão sobre a saúde da atração e retenção, calibrando se estamos perdendo talentos na mesma velocidade que contratamos.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-purple-700 text-sm">Tempo de Casa (Tenure)</span>
+                                <span>Mediana em anos desde a data de admissão até hoje.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-slate-800 text-sm">Gerações</span>
+                                <span class="text-[11px] leading-relaxed">
+                                    <b>Gen Z:</b> 1997+<br>
+                                    <b>Millennials:</b> 1981 - 1996<br>
+                                    <b>Gen X:</b> 1965 - 1980<br>
+                                    <b>Boomers:</b> 1946 - 1964
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="section-block">
+                        <div class="flex items-center gap-3 mb-4">
+                            <i class="ph ph-lightbulb text-amber-500 text-xl"></i>
+                            <h3 class="font-semibold text-slate-900 text-base">Conceitos Chave</h3>
+                        </div>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="flex flex-col gap-1">
+                                <span class="font-semibold text-slate-800 text-sm">Talento Crítico</span>
+                                <span>Colaboradores mapeados no Talent Review posicionados nos <b>Boxes 6, 7, 8 e 9</b>.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-slate-800 text-sm">PDI (Plano de Desenvolvimento Individual)</span>
+                                <span>Ferramenta de gestão que formaliza as ações de aprendizado e crescimento pactuadas entre líder e liderado.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-blue-700 text-sm">Leader2Grow</span>
+                                <span>Programa corporativo de desenvolvimento acelerado para lideranças da companhia.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-slate-800 text-sm">Compa-Ratio (CR)</span>
+                                <span>Salário / Midpoint da Faixa. Target ideal: 80% a 120%.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-emerald-700 text-sm">Score de Satisfação</span>
+                                <span>Média das avaliações em escala 1-5 nas entrevistas de desligamento. Aplicado às dimensões Experiência (6 itens) e Liderança (7 itens).</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-slate-800 text-sm">Régua Promotores · Passivos · Detratores</span>
+                                <span class="text-[11px] leading-relaxed">
+                                    <b class="text-emerald-700">Promotores:</b> notas 4 e 5<br>
+                                    <b class="text-amber-700">Passivos:</b> nota 3<br>
+                                    <b class="text-red-700">Detratores:</b> notas 1 e 2
+                                </span>
+                                <span class="bg-slate-50 p-2 rounded text-slate-700 italic mt-1 border border-slate-100 text-[11px]">Adaptação interna da régua de NPS para a escala Likert 1-5. Não é NPS clássico.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-blue-700 text-sm">Taxa de Recomendação</span>
+                                <span>% de respostas "Sim" à pergunta "Recomendaria a empresa a outras pessoas?" entre os entrevistados.</span>
+                            </li>
+                            <li class="flex flex-col gap-1 border-t border-slate-100 pt-3">
+                                <span class="font-semibold text-slate-800 text-sm">Taxa de Adesão (Offboarding)</span>
+                                <span>% de desligados voluntários que efetivamente realizaram a entrevista de saída.</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="section-block">
+                        <div class="flex items-center gap-3 mb-4">
+                            <i class="ph ph-palette text-pink-600 text-xl"></i>
+                            <h3 class="font-semibold text-slate-900 text-base">Simbologia & Cores</h3>
+                        </div>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="flex items-center gap-3">
+                                <i class="ph ph-star text-amber-400 text-lg"></i>
+                                <span><b>Talento Crítico:</b> Mapeado no Talent Review.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="status-dot status-yes"></span>
+                                <span><b>Sim / Positivo:</b> Ação concluída.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="status-dot status-no"></span>
+                                <span><b>Não / Pendente:</b> Ação não realizada.</span>
+                            </li>
+                            <li class="flex items-center gap-3 border-t border-slate-100 pt-3">
+                                <span class="badge badge-yellow">Voluntário</span>
+                                <span>Saída por iniciativa do <b>Empregado</b> (Pedido).</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="badge badge-gray">Involuntário</span>
+                                <span>Saída por iniciativa da <b>Empresa</b>.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        Desenvolvido por <strong>Vinicius Carlos</strong> · HRBP Negócios BR
+    </footer>
+</main>
+
+<script>
+    const State = {
+        raw: { ativos: [], deslig: [], mov: [], lid: [], cultura: [], workforce: [], vagas: [] },
+        filters: { hrbp: [], area: [], pais: [], org: [], mes: [], site: [], grade: [] },
+        filtered: {}, charts: {},
+        grade12Only: false,
+        compTableFilter: 'ALL', 
+        retentionFilter: 'ALL',
+        criticalTalentsMap: new Set()
+    };
+    
+    // Debounce: agrupa cliques de filtro em uma única execução
+    let filterDebounceTimer = null;
+    function debouncedApply() {
+        if(filterDebounceTimer) clearTimeout(filterDebounceTimer);
+        filterDebounceTimer = setTimeout(() => { applyFilters(); }, 350);
+    }
+    
+    // View ativa para lazy render
+    let activeView = 'exec';
+    const VIEW_RENDER_MAP = {
+        'exec': 'renderExec',
+        'adm': 'renderAdmitidos',
+        'vagas': 'renderVagas',
+        'work': 'renderWorkforce',
+        'comp': 'renderComp',
+        'ret': 'renderRetencao',
+        'mov': 'renderMov',
+        'lid': 'renderLideranca'
+    };
+    
+    const Colors = { 
+        indigo: '#1E3A8A', 
+        blue: '#3B82F6', 
+        teal: '#0891B2', 
+        red: '#DC2626', 
+        orange: '#D97706', 
+        green: '#059669', 
+        purple: '#7C3AED', 
+        slate: '#64748B',
+        pink: '#DB2777' 
+    };
+    
+    function markLoaded(cardId) {
+        document.getElementById(cardId).classList.add('loaded');
+    }
+    
+    function openSplash() {
+        document.getElementById('splash-screen').style.display = 'flex';
+        document.getElementById('main-app').style.display = 'none';
+    }
+    
+    async function processFiles() {
+        const btn = document.getElementById('btn-text'); 
+        const spin = document.getElementById('spinner');
+        const btnIcon = document.getElementById('btn-icon');
+        
+        if(typeof XLSX === 'undefined') {
+            alert("Biblioteca XLSX ainda carregando... tente novamente em 2 segundos.");
+            return;
+        }
+        const f1Input = document.getElementById('file-1');
+        const f2Input = document.getElementById('file-2');
+        
+        const f1 = f1Input ? f1Input.files[0] : null;
+        const f2 = f2Input ? f2Input.files[0] : null;
+        if(!f1 && !f2) { alert("Por favor, selecione pelo menos um arquivo para processar."); return; }
+        
+        btn.innerText = "Lendo Arquivos..."; 
+        btnIcon.classList.add('hidden');
+        spin.classList.remove('hidden');
+        
+        const read = (f) => new Promise(resolve => {
+            if(!f) resolve({}); const r = new FileReader();
+            r.onload = (e) => { 
+                try {
+                    const wb = XLSX.read(e.target.result, {type:'array', cellDates:true}); 
+                    const res = {}; 
+                    wb.SheetNames.forEach(n => {
+                        const cleanName = n.trim().toUpperCase();
+                        res[cleanName] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""});
+                    }); 
+                    resolve(res); 
+                } catch(err) {
+                    console.error("Erro no parser XLSX:", err);
+                    resolve({});
+                }
+            };
+            r.onerror = () => resolve({});
+            r.readAsArrayBuffer(f);
+        });
+        try {
+            const [d1, d2] = await Promise.all([read(f1), read(f2)]);
+            
+            const mapData = (data) => {
+                if(data['ATIVOS'] && data['ATIVOS'].length > 0) State.raw.ativos = data['ATIVOS'];
+                if(data['DESLIGAMENTOS'] && data['DESLIGAMENTOS'].length > 0) State.raw.deslig = data['DESLIGAMENTOS'];
+                if(data['MOVIMENTOS'] && data['MOVIMENTOS'].length > 0) State.raw.mov = data['MOVIMENTOS'];
+                if(data['LIDERANCA'] && data['LIDERANCA'].length > 0) State.raw.lid = data['LIDERANCA'];
+                if(data['LIDERANÇA'] && data['LIDERANÇA'].length > 0) State.raw.lid = data['LIDERANÇA'];
+                if(data['WORKFORCE'] && data['WORKFORCE'].length > 0) State.raw.workforce = data['WORKFORCE'];
+                if(data['VAGAS'] && data['VAGAS'].length > 0) State.raw.vagas = data['VAGAS'];
+            };
+            mapData(d1);
+            mapData(d2);
+            
+            State.criticalTalentsMap = new Set();
+            State.raw.ativos.forEach(r => {
+                if(isCritical(r)) {
+                    if(r['ID']) State.criticalTalentsMap.add(String(r['ID']));
+                    if(r['DISPLAY_NAME']) State.criticalTalentsMap.add(String(r['DISPLAY_NAME']).toUpperCase());
+                    if(r['NOME_COMPLETO']) State.criticalTalentsMap.add(String(r['NOME_COMPLETO']).toUpperCase());
+                }
+            });
+            
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            initFilters();
+        } catch (e) { 
+            alert("Erro ao processar arquivos. Verifique o formato."); 
+            console.error(e); 
+        } finally { 
+            btn.innerText = "Acessar Dashboard"; 
+            btnIcon.classList.remove('hidden');
+            spin.classList.add('hidden'); 
+        }
+    }
+    
+    function exportFullReport() {
+        if(!State.raw.ativos.length) { alert("Carregue os dados primeiro."); return; }
+        const wb = XLSX.utils.book_new();
+        if(State.filtered.ativos.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.ativos), "Base Ativos");
+        if(State.filtered.deslig.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.deslig), "Base Desligamentos");
+        if(State.filtered.mov.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.mov), "Base Movimentação");
+        if(State.filtered.lid.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.lid), "Base Liderança");
+        if(State.filtered.workforce.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.workforce), "Base Workforce");
+        if(State.filtered.vagas && State.filtered.vagas.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(State.filtered.vagas), "Base Vagas");
+        XLSX.writeFile(wb, "Deepdive_RH_Estrategico.xlsx");
+    }
+    
+    function initFilters() {
+        if(!State.raw.ativos || State.raw.ativos.length === 0) return;
+        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].sort().reverse();
+        State.filters.mes = months.length > 0 ? [months[0]] : [];
+        
+        // Popula seletor de período
+        const periodoSel = document.getElementById('periodo-select');
+        if (periodoSel) {
+            periodoSel.innerHTML = '<option value="ALL">Todos os períodos</option>' + 
+                months.map(m => `<option value="${m}" ${m === months[0] ? 'selected' : ''}>${m}</option>`).join('');
+        }
+        
+        const keys = [['HRBP','hrbp'], ['ÁREA','area'], ['PAÍS','pais'], ['ORG UNIT','org'], ['SITE','site'], ['GRADE','grade']];
+        const bar = document.getElementById('filter-bar');
+        while (bar.children.length > 0) bar.removeChild(bar.lastChild);
+        
+        keys.forEach(([lbl, k]) => {
+            const div = document.createElement('div'); div.className = 'relative';
+            const btn = document.createElement('button'); btn.className = 'filter-pill'; btn.id = `btn-${k}`;
+            btn.innerHTML = `<span>${lbl}: <span id="lbl-${k}" class="font-normal text-xs ml-1">Todos</span></span><i class="ph ph-caret-down"></i>`;
+            btn.onclick = (e) => { e.stopPropagation(); toggleDropdown(k); };
+            const dd = document.createElement('div'); dd.className = 'dropdown-menu'; dd.id = `dd-${k}`;
+            div.appendChild(btn); div.appendChild(dd); bar.appendChild(div);
+        });
+        const clear = document.createElement('button'); clear.className = 'text-[10px] text-blue-700 font-semibold hover:bg-blue-50 px-3 py-1 rounded ml-auto transition';
+        clear.innerHTML = 'LIMPAR FILTROS';
+        clear.onclick = () => { State.filters = { hrbp: [], area: [], pais: [], org: [], mes: months.length ? [months[0]] : [], site: [], grade: [] }; debouncedApply(); };
+        bar.appendChild(clear);
+        applyFilters();
+        window.onclick = () => document.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('show'));
+    }
+    
+    function toggleDropdown(key) { 
+        document.querySelectorAll('.dropdown-menu').forEach(d => { if(d.id !== `dd-${key}`) d.classList.remove('show'); }); 
+        const dd = document.getElementById(`dd-${key}`); 
+        const opts = getCascadeOptions(key); 
+        dd.innerHTML = '<div class="p-2 border-b border-slate-100 mb-1 text-xs font-semibold text-blue-700 cursor-pointer hover:bg-slate-50 rounded" onclick="toggleAll(\''+key+'\', '+opts.length+')">(Selecionar Todos)</div>'; 
+        opts.forEach(val => { 
+            const checked = State.filters[key].includes(val); 
+            dd.innerHTML += `<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs text-slate-700 rounded"><input type="checkbox" class="accent-blue-700" ${checked?'checked':''} onchange="handleSel('${key}','${val}',this.checked)"> ${val}</label>`; 
+        }); 
+        dd.classList.toggle('show'); 
+    }
+    function toggleAll(key, total) { const opts = getCascadeOptions(key); State.filters[key] = (State.filters[key].length === total && total > 0) ? [] : opts; debouncedApply(); }
+    function handleSel(key, val, checked) { if(checked) State.filters[key].push(val); else State.filters[key] = State.filters[key].filter(v=>v!==val); debouncedApply(); }
+    
+    function getCascadeOptions(targetKey) {
+        let d = State.raw.ativos; const f = State.filters;
+        if(targetKey!=='mes' && f.mes.length) d = d.filter(r=>f.mes.includes(fmtDate(r['MÊS'])));
+        if(targetKey!=='pais' && f.pais.length) d = d.filter(r=>f.pais.includes(r['PAIS']));
+        if(targetKey!=='org' && f.org.length) d = d.filter(r=>f.org.includes(r['ORG_UNIT']));
+        if(targetKey!=='area' && f.area.length) d = d.filter(r=>f.area.includes(r['AREA']));
+        if(targetKey!=='hrbp' && f.hrbp.length) d = d.filter(r=>f.hrbp.includes(r['HRBP']));
+        if(targetKey!=='site' && f.site.length) d = d.filter(r=>f.site.includes(r['SITE']));
+        if(targetKey!=='grade' && f.grade.length) d = d.filter(r=>f.grade.includes(String(r['GRADE'])));
+        const map = { 'mes':'MÊS', 'hrbp':'HRBP', 'pais':'PAIS', 'area':'AREA', 'org':'ORG_UNIT', 'site': 'SITE', 'grade': 'GRADE' };
+        let opts = [...new Set(d.map(r=> {
+            if(targetKey==='mes') return fmtDate(r[map[targetKey]]);
+            if(targetKey==='grade') return String(r[map[targetKey]]);
+            return r[map[targetKey]];
+        }))].filter(x=>x && x !== 'undefined' && x !== 'null');
+        
+        if(targetKey === 'grade') {
+            return opts.sort((a,b) => parseFloat(a) - parseFloat(b));
+        }
+        return opts.sort();
+    }
+    
+    function handlePeriodoChange(val) {
+        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].sort().reverse();
+        if (val === 'ALL') {
+            State.filters.mes = [];
+            document.getElementById('periodo-info').innerText = `${months.length} meses carregados`;
+        } else {
+            State.filters.mes = [val];
+            document.getElementById('periodo-info').innerText = '';
+        }
+        debouncedApply();
+    }
+    
+    function applyFilters() {
+        Object.keys(State.filters).forEach(k => { const len = State.filters[k].length; const el = document.getElementById(`lbl-${k}`); const btn = document.getElementById(`btn-${k}`); if(el && btn) { if(len===0) { el.innerText="Todos"; btn.classList.remove('active'); } else { el.innerText = len > 1 ? `(${len})` : State.filters[k][0]; btn.classList.add('active'); } } });
+        const check = (r, dateCol) => {
+            const f = State.filters;
+            if(f.pais.length && !f.pais.includes(r['PAIS'])) return false;
+            if(f.org.length && !f.org.includes(r['ORG_UNIT'])) return false;
+            if(f.hrbp.length && !f.hrbp.includes(r['HRBP'])) return false;
+            if(f.area.length && !f.area.includes(r['AREA'])) return false;
+            if(f.site.length && !f.site.includes(r['SITE'])) return false;
+            if(f.grade.length && !f.grade.includes(String(r['GRADE']))) return false;
+            if(dateCol && f.mes.length && !f.mes.includes(fmtDate(r[dateCol]))) return false;
+            return true;
+        };
+        State.filtered.ativos = State.raw.ativos.filter(r => check(r, 'MÊS'));
+        State.filtered.deslig = State.raw.deslig.filter(r => check(r, 'DATA_DESLIG'));
+        State.filtered.mov = State.raw.mov.filter(r => check(r, 'DATA_MOV'));
+        State.filtered.lid = State.raw.lid.filter(r => check(r, null));
+        State.filtered.workforce = State.raw.workforce.filter(r => check(r, null));
+        State.filtered.vagas = State.raw.vagas.filter(r => check(r, null));
+        State.filtered.hist = State.raw.ativos.filter(r => check(r, null));
+        updateDashboard();
+    }
+    
+    // Lazy render: ao trocar filtros renderiza só a view ativa.
+    // Marca outras views como dirty para serem renderizadas ao trocar de aba.
+    let dirtyViews = new Set();
+    
+    function updateDashboard() {
+        // Renderiza a view ativa imediatamente
+        const renderFn = VIEW_RENDER_MAP[activeView];
+        if(renderFn && window[renderFn]) window[renderFn]();
+        
+        // Marca todas as outras como pendentes
+        Object.keys(VIEW_RENDER_MAP).forEach(v => {
+            if(v !== activeView) dirtyViews.add(v);
+        });
+    }
+    
+    function renderViewIfDirty(viewId) {
+        if(dirtyViews.has(viewId)) {
+            const renderFn = VIEW_RENDER_MAP[viewId];
+            if(renderFn && window[renderFn]) window[renderFn]();
+            dirtyViews.delete(viewId);
+        }
+    }
+    
+    function switchTab(id) {
+        document.querySelectorAll('.view-section').forEach(e=>e.classList.add('hidden')); 
+        document.getElementById('view-'+id).classList.remove('hidden');
+        document.querySelectorAll('.tab-item').forEach(e=>e.classList.remove('active')); 
+        document.getElementById('nav-'+id).classList.add('active');
+        activeView = id;
+        renderViewIfDirty(id);
+        window.dispatchEvent(new Event('resize'));
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+    
+    function renderChart(id, type, labels, data, colors, opts={}) {
+        const ctx = document.getElementById(id); if(!ctx) return; if(State.charts[id]) State.charts[id].destroy();
+        Chart.defaults.font.family = "'Inter', sans-serif"; Chart.defaults.color = '#64748B';
+        State.charts[id] = new Chart(ctx, {
+            type: type,
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: type==='line'?colors:'white', borderWidth:2, fill:opts.fill, tension:opts.tension||0 }] },
+            options: { 
+                responsive:true, maintainAspectRatio:false, indexAxis: opts.axis||'x',
+                plugins: { 
+                    legend: { display: type!=='bar' && type!=='line' && type!=='scatter', position:'bottom', labels:{font:{size:11}, boxWidth: 10} },
+                    datalabels: { 
+                        display: opts.labels || type==='doughnut' || type==='pie' || type==='bar', 
+                        color: type==='line'?'#1E3A8A':'#0F172A', font:{weight:'bold', size:10}, 
+                        align: type==='line'?'top':'end', anchor: 'end',
+                        formatter: opts.formatter || null
+                    },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor:'#F8FAFC', bodyColor:'#CBD5E1', borderColor:'#334155', borderWidth:1, padding: 12, titleFont: {size: 12}, bodyFont: {size: 11}, cornerRadius: 6, displayColors: true },
+                    ...(opts.plugins || {})
+                },
+                scales: opts.scales || { x: { grid: { display:false } }, y: { grid: { color: '#F1F5F9' }, border: {display: false} } }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+    
+    function renderAlerts() {
+        const container = document.getElementById('exec-alerts-container');
+        if (!container) return;
+        
+        const d = State.filtered.ativos || [];
+        const deslig = State.filtered.deslig || [];
+        const vagas = State.filtered.vagas || [];
+        const monthsCount = State.filters.mes.length || 1;
+        const avgHC = d.length / monthsCount || 1;
+        
+        const alerts = [];
+        
+        // Turnover
+        const turn = (deslig.length / avgHC) * 100;
+        if (turn > 10) {
+            alerts.push({ level: 'critical', icon: 'ph-warning-octagon', 
+                text: `Turnover em <strong>${turn.toFixed(1)}%</strong> — acima de 10%. Recomenda-se revisão das causas de desligamento no módulo de Offboarding.` });
+        } else if (turn > 5) {
+            alerts.push({ level: 'warning', icon: 'ph-warning', 
+                text: `Turnover em <strong>${turn.toFixed(1)}%</strong> — entre 5% e 10%. Monitorar evolução nos próximos meses.` });
+        }
+        
+        // HC em queda
+        const evoMap = {};
+        (State.filtered.hist || []).forEach(r => { const m = fmtDate(r['MÊS']); evoMap[m] = (evoMap[m]||0)+1; });
+        const evoKeys = Object.keys(evoMap).sort();
+        if (evoKeys.length >= 3) {
+            const first = evoMap[evoKeys[0]];
+            const last  = evoMap[evoKeys[evoKeys.length-1]];
+            const delta = ((last - first) / first) * 100;
+            if (delta < -5) {
+                alerts.push({ level: 'warning', icon: 'ph-trend-down',
+                    text: `Headcount com queda de <strong>${Math.abs(delta).toFixed(1)}%</strong> entre ${evoKeys[0]} e ${evoKeys[evoKeys.length-1]}.` });
+            }
+        }
+        
+        // Comparatio < 80%
+        const crVals = d.filter(r => !isNaN(parseFloat(r['COMPARATIO'])));
+        if (crVals.length > 0) {
+            const crLow = crVals.filter(r => parseFloat(r['COMPARATIO']) < 0.8).length;
+            const crPct = (crLow / crVals.length) * 100;
+            if (crPct > 25) {
+                alerts.push({ level: 'warning', icon: 'ph-currency-circle-dollar',
+                    text: `<strong>${crLow} colaboradores (${crPct.toFixed(0)}%)</strong> com Comparatio abaixo de 80%. Atenção ao risco de retenção salarial.` });
+            }
+        }
+        
+        // Vagas em aberto (total)
+        if (vagas.length > 0) {
+            const vagasAbertas = vagas.filter(v => {
+                const status = String(v['STATUS'] || v['Status'] || '').toUpperCase();
+                return status.includes('ABERTA') || status.includes('OPEN') || status === '';
+            });
+            if (vagasAbertas.length > 20) {
+                alerts.push({ level: 'info', icon: 'ph-briefcase',
+                    text: `<strong>${vagasAbertas.length} posições abertas</strong> no período. Verifique a aba de Posições Abertas para o detalhamento.` });
+            }
+        }
+        
+        if (alerts.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'block';
+        const colors = {
+            critical: { bg: '#FEF2F2', border: '#FCA5A5', icon: '#DC2626', text: '#7F1D1D' },
+            warning:  { bg: '#FFFBEB', border: '#FDE68A', icon: '#D97706', text: '#78350F' },
+            info:     { bg: '#EFF6FF', border: '#BFDBFE', icon: '#2563EB', text: '#1E3A5F' }
+        };
+        container.innerHTML = alerts.map(a => {
+            const c = colors[a.level];
+            return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:0.75rem 1rem;display:flex;align-items:flex-start;gap:10px;">
+                <i class="ph-fill ${a.icon}" style="color:${c.icon};font-size:1.1rem;margin-top:1px;flex-shrink:0;"></i>
+                <p style="font-size:0.78rem;color:${c.text};line-height:1.5;">${a.text}</p>
+            </div>`;
+        }).join('');
+    }
+    
+    window.renderExec = function() {
+        const d = State.filtered.ativos;
+        const monthsCount = State.filters.mes.length || 1;
+        const avgHC = Math.round(d.length / monthsCount);
+        setVal('exec-hc', avgHC);
+        
+        const uniqueHires = new Set(
+            d.filter(r => State.filters.mes.includes(fmtDate(r['DATA_ADM'])))
+             .map(r => r['ID'] || r['DISPLAY_NAME'] || r['NOME_COMPLETO'])
+        );
+        setVal('exec-hires', uniqueHires.size);
+        const turn = avgHC > 0 ? ((State.filtered.deslig.length/avgHC)*100).toFixed(1) : 0;
+        setVal('exec-turn', turn+'%'); setVal('ret-turn', turn+'%');
+        document.getElementById('exec-turn-avg-msg').innerText = monthsCount > 1 ? `*Média calculada sobre ${monthsCount} meses selecionados.` : "";
+        const tenures = d.map(r => (new Date() - new Date(r['DATA_ADM']))/3.154e10).sort((a,b)=>a-b);
+        setVal('exec-tenure', tenures.length ? tenures[Math.floor(tenures.length/2)].toFixed(1) : 0);
+        const leaders = {}; d.forEach(r => { if(r['LIDER_DIRETO']) leaders[r['LIDER_DIRETO']] = (leaders[r['LIDER_DIRETO']]||0)+1; });
+        const spans = Object.values(leaders);
+        const totalSpanSum = spans.reduce((a,b)=>a+b,0);
+        const avgSpan = spans.length ? (totalSpanSum/spans.length).toFixed(1) : 0;
+        setVal('exec-span', avgSpan);
+        document.getElementById('exec-span-msg').innerText = monthsCount > 1 ? `*Média mensal dos ${monthsCount} meses.` : "";
+        const evoMap = {}; State.filtered.hist.forEach(r => { const m = fmtDate(r['MÊS']); evoMap[m] = (evoMap[m]||0)+1; });
+        const evoKeys = Object.keys(evoMap).sort().slice(-12);
+        renderChart('chart-hc-evo', 'line', evoKeys, evoKeys.map(k=>evoMap[k]), Colors.indigo, {labels:true, scales:{y:{min:0, max:2000}}});
+        
+        const lMap = {'Estratégico':0,'Tático':0,'Operacional':0};
+        d.forEach(r => { const g=parseInt(r['GRADE']); if(g>=12) lMap['Estratégico']++; else if(g>=9) lMap['Tático']++; else lMap['Operacional']++; });
+        renderChart('chart-layers', 'bar', Object.keys(lMap), Object.values(lMap), [Colors.purple, Colors.indigo, Colors.teal]);
+        const cMap = {'<80%':0, '80-120%':0, '>120%':0};
+        d.forEach(r => { const c=parseFloat(r['COMPARATIO']); if(c<0.8) cMap['<80%']++; else if(c>1.2) cMap['>120%']++; else cMap['80-120%']++; });
+        const totalC = Object.values(cMap).reduce((a,b)=>a+b,0)||1;
+        renderChart('chart-compa-donut', 'bar', Object.keys(cMap), Object.values(cMap), [Colors.red, Colors.green, Colors.orange], {formatter: (val) => `${val} (${Math.round(val/totalC*100)}%)`});
+        renderAlerts();
+    }
+    
+    window.renderAdmitidos = function() {
+        const d = State.filtered.ativos;
+        
+        const admitsMap = new Map();
+        d.forEach(r => {
+            const admMonth = fmtDate(r['DATA_ADM']);
+            if(State.filters.mes.includes(admMonth)) {
+                const key = r['ID'] || r['DISPLAY_NAME'] || r['NOME_COMPLETO'];
+                if(!admitsMap.has(key)) admitsMap.set(key, r);
+            }
+        });
+        
+        const uniqueAdmits = Array.from(admitsMap.values());
+        uniqueAdmits.sort((a,b) => new Date(a['DATA_ADM']) - new Date(b['DATA_ADM']));
+        setVal('adm-total', uniqueAdmits.length);
+        const trend = {};
+        uniqueAdmits.forEach(r => { 
+            const m = fmtDate(r['DATA_ADM']); 
+            trend[m] = (trend[m] || 0) + 1; 
+        });
+        const keys = Object.keys(trend).sort();
+        renderChart('chart-adm-trend', 'bar', keys, keys.map(k=>trend[k]), Colors.blue);
+        const tb = document.querySelector('#adm-table tbody'); 
+        tb.innerHTML = '';
+        uniqueAdmits.forEach(r => {
+            const t = ((new Date() - new Date(r['DATA_ADM']))/3.154e10).toFixed(1);
+            const rawDate = new Date(r['DATA_ADM']);
+            const dateStr = rawDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            
+            tb.innerHTML += `<tr>
+                <td>${fmtDate(r['DATA_ADM'])}</td>
+                <td>${r['ORG_UNIT'] || '-'}</td>
+                <td class="font-medium text-slate-900">${r['DISPLAY_NAME'] || r['NOME_COMPLETO'] || '-'}</td>
+                <td>${r['CARGO'] || '-'}</td>
+                <td>${dateStr}</td>
+                <td>${t} Anos</td>
+                <td>${r['HRBP'] || '-'}</td>
+            </tr>`;
+        });
+    }
+    
+    window.renderVagas = function() {
+        const d = State.filtered.vagas || [];
+        
+        // KPI Total
+        setVal('vagas-total', d.length);
+        
+        // Vagas por área
+        const byArea = {};
+        d.forEach(r => {
+            const area = r['AREA'] || 'Sem Área';
+            byArea[area] = (byArea[area] || 0) + 1;
+        });
+        const total = d.length || 1;
+        const areaContainer = document.getElementById('vagas-by-area');
+        areaContainer.innerHTML = '';
+        
+        const sortedAreas = Object.entries(byArea).sort((a,b) => b[1] - a[1]);
+        
+        if(sortedAreas.length === 0) {
+            areaContainer.innerHTML = '<div class="col-span-3 text-center text-slate-400 text-sm py-4">Nenhuma vaga no período filtrado</div>';
+        } else {
+            sortedAreas.forEach(([area, count]) => {
+                const pct = ((count/total)*100).toFixed(1);
+                areaContainer.innerHTML += `
+                    <div class="bg-slate-50 border border-slate-100 rounded-lg p-3 hover:border-blue-200 transition">
+                        <div class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide truncate" title="${area}">${area}</div>
+                        <div class="flex items-baseline justify-between mt-1.5">
+                            <span class="text-2xl font-bold text-slate-900">${count}</span>
+                            <span class="text-xs font-semibold text-blue-700">${pct}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        // Tabela
+        const tb = document.querySelector('#vagas-table tbody');
+        tb.innerHTML = '';
+        d.forEach(r => {
+            const origem = String(r['ORIGEM'] || '').trim();
+            const status = String(r['STATUS'] || '').trim();
+            const orcada = String(r['ORÇADA'] || r['ORCADA'] || '').trim();
+            
+            // Origem badge
+            let origemBadge = 'badge-gray';
+            const origemUp = origem.toUpperCase();
+            if(origemUp.includes('SUBSTITUI')) origemBadge = 'badge-cyan';
+            else if(origemUp.includes('CRESCIMENTO')) origemBadge = 'badge-purple';
+            else if(origemUp.includes('HIRING')) origemBadge = 'badge-blue';
+            
+            // Status badge
+            let statusBadge = 'badge-gray';
+            const statusUp = status.toUpperCase();
+            if(statusUp.includes('FINALIZ')) statusBadge = 'badge-green';
+            else if(statusUp.includes('ANDAMENTO')) statusBadge = 'badge-orange';
+            else if(statusUp.includes('STANDBY')) statusBadge = 'badge-yellow';
+            else if(statusUp.includes('NÃO INICIADO') || statusUp.includes('NAO INICIADO')) statusBadge = 'badge-gray';
+            else if(statusUp.includes('SUBSTITUI')) statusBadge = 'badge-indigo';
+            
+            // Orçada badge
+            let orcadaBadge = 'badge-gray';
+            const orcadaUp = orcada.toUpperCase();
+            if(orcadaUp === 'SIM' || orcadaUp === 'YES') orcadaBadge = 'badge-green';
+            else if(orcadaUp === 'NÃO' || orcadaUp === 'NAO' || orcadaUp === 'NO') orcadaBadge = 'badge-red';
+            
+            tb.innerHTML += `<tr>
+                <td>${origem ? `<span class="badge ${origemBadge}">${origem}</span>` : '-'}</td>
+                <td>${r['AREA'] || '-'}</td>
+                <td class="font-medium text-slate-900">${r['CARGO'] || '-'}</td>
+                <td>${r['GRADE'] || '-'}</td>
+                <td>${r['POSIÇÃO'] || r['POSICAO'] || '-'}</td>
+                <td>${orcada ? `<span class="badge ${orcadaBadge}">${orcada}</span>` : '-'}</td>
+                <td>${status ? `<span class="badge ${statusBadge}">${status}</span>` : '-'}</td>
+                <td class="text-xs text-slate-500 max-w-xs truncate" title="${r['COMENTÁRIO'] || r['COMENTARIO'] || ''}">${r['COMENTÁRIO'] || r['COMENTARIO'] || '-'}</td>
+                <td>${r['HRBP'] || '-'}</td>
+            </tr>`;
+        });
+    }
+    
+    window.renderWorkforce = function() {
+        const d = State.filtered.workforce;
+        const sum = (k) => d.reduce((a,b)=>a+(parseFloat(b[k])||0),0);
+        setVal('wf-orc', sum('HC_ORC')); setVal('wf-norc', sum('HC_NORC')); setVal('wf-ytd-orc', sum('YTD_ORC')); setVal('wf-total', sum('YTD_ORC')+sum('YTD_NORC'));
+        const tb = document.querySelector('#wf-table tbody'); tb.innerHTML = '';
+        d.forEach(r => { const tot = (r['HC_ORC']||0)+(r['HC_NORC']||0); const ytd = (r['YTD_ORC']||0)+(r['YTD_NORC']||0);
+            tb.innerHTML += `<tr><td>${r['ORG_UNIT']}</td><td>${r['AREA']}</td><td>${r['CECO']||'-'}</td><td>${r['HC_ORC']}</td><td>${r['YTD_ORC']}</td><td>${r['HC_NORC']}</td><td>${r['YTD_NORC']}</td><td class="font-semibold">${tot}</td><td class="font-semibold">${ytd}</td><td class="font-semibold ${tot-ytd>0?'text-emerald-600':'text-rose-600'}">${tot-ytd}</td></tr>`;
+        });
+    }
+    
+    window.renderComp = function() {
+        const map = new Map(); State.filtered.ativos.forEach(r => map.set(r['ID'], r));
+        const d = Array.from(map.values()).filter(r => r['COMPARATIO']);
+        const vals = d.map(r=>parseFloat(r['COMPARATIO'])).sort((a,b)=>a-b);
+        const med = vals[Math.floor(vals.length/2)];
+        setVal('comp-mediana', med?(med*100).toFixed(1)+'%':'-');
+        
+        let abaixo = 0, dentro = 0, acima = 0;
+        d.forEach(r => {
+            const v = parseFloat(r['COMPARATIO']);
+            if(v < 0.8) abaixo++; else if(v > 1.2) acima++; else dentro++;
+        });
+        const tC = vals.length || 1;
+        setVal('comp-abaixo-pct', Math.round(abaixo/tC*100)+'%'); setVal('comp-abaixo-abs', `(${abaixo})`);
+        setVal('comp-dentro-pct', Math.round(dentro/tC*100)+'%'); setVal('comp-dentro-abs', `(${dentro})`);
+        setVal('comp-acima-pct', Math.round(acima/tC*100)+'%'); setVal('comp-acima-abs', `(${acima})`);
+        let fullData = d.map(r=>({x:(new Date()-new Date(r['DATA_ADM']))/3.154e10, y:parseFloat(r['COMPARATIO'])}));
+        const cleanData = fullData.filter(p => p.y <= 1.4);
+        document.getElementById('scat-footer-info').innerHTML = `<i class="ph ph-eye-slash"></i> Ocultos: <b>${fullData.length - cleanData.length}</b> casos acima de 140%.`;
+        const ctxScat = document.getElementById('chart-comp-scatter');
+        if(State.charts.scat) State.charts.scat.destroy();
+        State.charts.scat = new Chart(ctxScat, {
+            type: 'scatter',
+            data: { datasets: [{ data: cleanData, pointBackgroundColor: Colors.indigo, pointRadius: 4 }]},
+            options: {
+                responsive:true, maintainAspectRatio:false, plugins: { legend: {display:false}, tooltip: {callbacks: {label: (c)=> `Tenure: ${c.raw.x.toFixed(1)}y, CR: ${(c.raw.y*100).toFixed(0)}%`}} },
+                scales: { y: { title: {display:true, text:'Compa-Ratio (%)'}, ticks: {callback: v=>(v*100).toFixed(0)+'%'}, max: 1.45 }, x: { title: {display:true, text:'Tempo de Casa (Anos)'} } }
+            }
+        });
+        const grades = [...new Set(d.map(r=>parseInt(r['GRADE'])))].sort((a,b)=>b-a).filter(g=>g>=4);
+        const ranges = ['<80%', '80-120%', '>120%'];
+        let html = `<thead><tr><th class="bg-blue-50">Grade</th>${ranges.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>`;
+        grades.forEach(g => {
+            const totalInGrade = d.filter(r=>parseInt(r['GRADE'])==g).length;
+            html += `<tr><td class="font-semibold text-center bg-slate-50">${g}</td>`;
+            ranges.forEach((rng, idx) => {
+                let c = d.filter(r=>{ const v=parseFloat(r['COMPARATIO']); const gr=parseInt(r['GRADE']); if(gr!=g) return false; if(idx===0) return v<0.8; if(idx===1) return v>=0.8 && v<=1.2; return v>1.2; }).length;
+                const pct = totalInGrade ? Math.round(c/totalInGrade*100) : 0;
+                const bg = `rgba(30, 58, 138, ${c > 0 ? Math.max(0.1, pct/80) : 0})`;
+                html += `<td style="background:${bg}; color:${pct>40?'white':'#0F172A'}" class="text-center transition hover:scale-105"><div class="flex flex-col leading-tight"><span>${pct}%</span><span class="text-[9px] font-normal opacity-70">(${c})</span></div></td>`;
+            });
+            html += '</tr>';
+        });
+        document.getElementById('comp-heatmap').innerHTML = html + '</tbody>';
+        renderCompTableOnly();
+    }
+    
+    function filterCompTable(type) {
+        State.compTableFilter = type;
+        document.querySelectorAll('[id^="btn-comp-"]').forEach(b => b.classList.remove('active'));
+        const activeMap = {'ALL': 'all', 'LOW': 'low', 'MID': 'mid', 'HIGH': 'high'};
+        document.getElementById(`btn-comp-${activeMap[type]}`).classList.add('active');
+        renderCompTableOnly();
+    }
+    
+    function renderCompTableOnly() {
+        const tb = document.querySelector('#comp-table tbody'); 
+        tb.innerHTML = '';
+        let d = Array.from(new Map(State.filtered.ativos.map(r => [r['ID'], r])).values()).filter(r => r['COMPARATIO']);
+        d.sort((a,b) => new Date(b['DATA_ADM']) - new Date(a['DATA_ADM']));
+        
+        d.forEach(r => {
+            const v = parseFloat(r['COMPARATIO']);
+            let cat = ''; let catClass = '';
+            
+            if(v < 0.8) { cat = 'Abaixo de 80%'; catClass = 'text-red-600 bg-red-50'; }
+            else if(v > 1.2) { cat = 'Acima de 120%'; catClass = 'text-blue-700 bg-blue-50'; }
+            else { cat = '80% - 120%'; catClass = 'text-emerald-600 bg-emerald-50'; }
+            
+            if(State.compTableFilter === 'LOW' && v >= 0.8) return;
+            if(State.compTableFilter === 'MID' && (v < 0.8 || v > 1.2)) return;
+            if(State.compTableFilter === 'HIGH' && v <= 1.2) return;
+            const t = ((new Date() - new Date(r['DATA_ADM']))/3.154e10).toFixed(1);
+            const dateStr = new Date(r['DATA_ADM']).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            
+            tb.innerHTML += `<tr>
+                <td>${fmtDate(r['MÊS'])||'-'}</td>
+                <td>${r['ORG_UNIT']||'-'}</td>
+                <td class="font-medium text-slate-900">${r['DISPLAY_NAME']||r['NOME_COMPLETO']||'-'}</td>
+                <td>${r['CARGO']||'-'}</td>
+                <td>${dateStr}</td>
+                <td>${t} Anos</td>
+                <td class="font-semibold">${(v*100).toFixed(1)}%</td>
+                <td><span class="px-2 py-1 rounded border border-slate-100 text-[10px] font-semibold ${catClass}">${cat}</span></td>
+                <td>${r['HRBP']||'-'}</td>
+            </tr>`;
+        });
+    }
+    
+    function updateRetention(type) {
+        State.retentionFilter = type;
+        document.querySelectorAll('[id^="btn-ret-"]').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.getElementById(`btn-ret-${type === 'ALL' ? 'all' : type === 'VOL' ? 'vol' : 'inv'}`);
+        if (activeBtn) activeBtn.classList.add('active');
+        renderRetencao();
+    }
+    
+    window.renderRetencao = function() {
+        let d = State.filtered.deslig;
+        if(State.retentionFilter !== 'ALL') {
+            d = d.filter(r => {
+                const fullString = (String(r['MOTIVO_DESLIG'] || "") + " " + String(r['TIPO_DESLIG'] || "")).toUpperCase();
+                const isCompany = fullString.includes('EMPRESA') || fullString.includes('INVOLUNTÁRIA');
+                const isEmployee = (fullString.includes('EMPREGADO') || fullString.includes('COLABORADOR') || fullString.includes('PEDIDO') || fullString.includes('VOLUNTÁRIA')) && !fullString.includes('EMPRESA');
+                if(State.retentionFilter === 'INV') return isCompany;
+                if(State.retentionFilter === 'VOL') return isEmployee;
+                return true;
+            });
+        }
+        setVal('ret-total', d.length);
+        const tenureData = d.map(r => (new Date(r['DATA_DESLIG']) - new Date(r['DATA_ADM']))/3.154e10);
+        setVal('ret-tenure', tenureData.length ? (tenureData.reduce((a,b)=>a+b,0)/tenureData.length).toFixed(1) : 0);
+        const crit = d.filter(r => isCritical(r)).length;
+        setVal('ret-crit', crit); setTxt('ret-crit-pct', d.length?Math.round(crit/d.length*100)+'%':'-');
+        const reasons = countBy(d, 'MOTIVO_DESLIG');
+        const sorted = Object.entries(reasons).sort((a,b)=>b[1]-a[1]);
+        const top3Div = document.getElementById('ret-top3'); top3Div.innerHTML = '';
+        sorted.slice(0,3).forEach(([k,v], i) => {
+            top3Div.innerHTML += `<div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg hover:border-blue-200 transition">
+                <span class="text-xs font-semibold text-slate-700 w-3/4 truncate"><span class="text-blue-700 mr-2">#${i+1}</span>${k}</span><span class="font-semibold text-slate-900">${v}</span></div>`;
+        });
+        renderChart('chart-ret-reasons', 'bar', sorted.slice(0,8).map(x=>x[0]), sorted.slice(0,8).map(x=>x[1]), Colors.red, {axis:'y'});
+        const types = countBy(d, 'TIPO_DESLIG');
+        const totalTypes = Object.values(types).reduce((a,b)=>a+b,0)||1;
+        renderChart('chart-ret-type', 'doughnut', Object.keys(types), Object.values(types), [Colors.blue, Colors.orange], {formatter: (val) => `${val} (${Math.round(val/totalTypes*100)}%)`});
+        const compaBuckets = {'<80%':0, '80-120%':0, '>120%':0};
+        if(d.length > 0) d.forEach(r => { if(r['COMPARATIO']) { const c=parseFloat(r['COMPARATIO']); if(!isNaN(c)) { if(c<0.8) compaBuckets['<80%']++; else if(c>1.2) compaBuckets['>120%']++; else compaBuckets['80-120%']++; } } });
+        renderChart('chart-ret-profile', 'bar', Object.keys(compaBuckets), Object.values(compaBuckets), Colors.indigo);
+        const perfMap = {'Alta':0, 'Média':0, 'Baixa':0};
+        d.forEach(r => { const p = String(r['CATEGORIA_PERFORMANCE']).toLowerCase(); if(p.includes('supera') || p.includes('referência')) perfMap['Alta']++; else if(p.includes('parcial') || p.includes('abaixo')) perfMap['Baixa']++; else perfMap['Média']++; });
+        renderChart('chart-ret-perf', 'pie', Object.keys(perfMap), Object.values(perfMap), [Colors.green, Colors.indigo, Colors.red]);
+        const retTb = document.querySelector('#ret-table tbody'); retTb.innerHTML = '';
+        d.sort((a,b) => (a['DISPLAY_NAME']||'').localeCompare(b['DISPLAY_NAME']||''));
+        d.forEach(r => {
+            const t = ((new Date(r['DATA_DESLIG']) - new Date(r['DATA_ADM']))/3.154e10).toFixed(1);
+            
+            const typeText = r['TIPO_DESLIG'] || 'N/A';
+            const upperType = typeText.toUpperCase();
+            let badgeClass = 'badge-gray'; 
+            
+            if (upperType.includes('INVOLUNT') || upperType.includes('EMPRESA') || upperType.includes('JUSTA CAUSA') || upperType.includes('SEM JUSTA CAUSA')) {
+                badgeClass = 'badge-gray';
+            } else if (upperType.includes('VOLUNT') || upperType.includes('PEDIDO') || upperType.includes('COLABORADOR') || upperType.includes('EMPREGADO')) {
+                badgeClass = 'badge-yellow';
+            }
+            
+            retTb.innerHTML += `<tr>
+                <td class="font-medium text-slate-900">${r['DISPLAY_NAME']}</td>
+                <td>${r['AREA'] || '-'}</td>
+                <td>${r['MOTIVO_DESLIG']}</td>
+                <td><span class="badge ${badgeClass}">${typeText}</span></td>
+                <td>${t} Anos</td>
+                <td><span class="badge badge-indigo">${r['CATEGORIA_PERFORMANCE']}</span></td>
+                <td>${r['HRBP']||'-'}</td>
+            </tr>`;
+        });
+    }
+    
+    window.renderMov = function() {
+        const d = State.filtered.mov;
+        setVal('mov-total', d.length); setVal('mov-crit', d.filter(r=>isCritical(r)).length); setVal('mov-succ', d.filter(r=>String(r['SUCESSOR_MAPEADO']).toUpperCase().includes('SI')).length);
+        const types = countBy(d, 'TIPO_MOV');
+        const ul = document.getElementById('mov-list-type'); ul.innerHTML = '';
+        Object.entries(types).sort((a,b)=>b[1]-a[1]).forEach(([k,v]) => ul.innerHTML += `<li class="flex justify-between border-b border-slate-100 py-2.5"><span>${k}</span><b class="text-blue-700">${v}</b></li>`);
+        const trend = {}; d.forEach(r => { const m=fmtDate(r['DATA_MOV']); trend[m]=(trend[m]||0)+1; });
+        const keys = Object.keys(trend).sort();
+        renderChart('chart-mov-trend', 'line', keys, keys.map(k=>trend[k]), Colors.teal, {labels:true, scales:{y:{min:0, max:25}}});
+        d.sort((a,b) => (a['DISPLAY_NAME']||'').localeCompare(b['DISPLAY_NAME']||''));
+        const tb = document.querySelector('#mov-table tbody'); tb.innerHTML = '';
+        d.forEach(r => {
+            const star = isCritical(r) ? '<i class="ph ph-star text-amber-400"></i>' : '';
+            let iconType = '<i class="ph ph-arrow-right text-slate-400"></i>';
+            const type = String(r['TIPO_MOV']).toLowerCase();
+            let typeColor = 'text-slate-600';
+            if(type.includes('promo')) { iconType = '<i class="ph ph-trend-up text-purple-600"></i>'; typeColor='text-purple-700'; }
+            else if(type.includes('mérito')) { iconType = '<i class="ph ph-medal text-orange-500"></i>'; typeColor='text-orange-700'; }
+            else if(type.includes('lateral')) { iconType = '<i class="ph ph-arrows-left-right text-blue-500"></i>'; typeColor='text-blue-700'; }
+            tb.innerHTML += `<tr><td>${fmtDate(r['DATA_MOV'])}</td><td>${star} ${r['DISPLAY_NAME']}</td><td class="font-semibold flex items-center gap-2 ${typeColor}">${iconType} ${r['TIPO_MOV']}</td><td>${r['CARGO']}</td><td>${r['HRBP'] || '-'}</td></tr>`;
+        });
+    }
+    
+    window.renderLideranca = function() {
+        let d = State.filtered.lid;
+        if(State.grade12Only) d = d.filter(r => parseInt(r['GRADE']) >= 12);
+        const tot = d.length||1; const crit = d.filter(r=>isCritical(r)); const cult = d.filter(r=>String(r['AÇÃO_CULTURA']).toUpperCase().includes('SI')).length;
+        setVal('lid-cult', cult); setTxt('lid-cult-pct', Math.round(cult/tot*100)+'%');
+        setVal('lid-crit', crit.length); setTxt('lid-crit-pct', Math.round(crit.length/tot*100)+'%');
+        
+        const pdiCount = d.filter(r=>String(r['PDI_SISTEMA']).toUpperCase().includes('SI')).length;
+        setVal('lid-pdi', pdiCount); setTxt('lid-pdi-pct', Math.round(pdiCount/tot*100)+'%');
+        
+        const l2gCount = d.filter(r=>String(r['LEADER_TO_GROW']).toUpperCase().includes('SI')).length;
+        setVal('lid-l2g', l2gCount); setTxt('lid-l2g-pct', Math.round(l2gCount/tot*100)+'%');
+        const alerts = crit.filter(r => !String(r['PDI_SISTEMA']).toUpperCase().includes('SI'));
+        const alDiv = document.getElementById('lid-alert-list'); alDiv.innerHTML = alerts.length?'':'<span class="text-xs text-slate-400">Nenhum</span>';
+        alerts.forEach(r => alDiv.innerHTML += `<span class="bg-red-50 text-red-700 text-[10px] px-2 py-1 rounded font-semibold border border-red-100 flex items-center gap-1"><i class="ph ph-warning"></i> ${r['DISPLAY_NAME']}</span>`);
+        d.sort((a,b) => (a['DISPLAY_NAME']||'').localeCompare(b['DISPLAY_NAME']||''));
+        const tb = document.querySelector('#lid-table tbody'); tb.innerHTML = '';
+        d.forEach(r => {
+                const isCrit = isCritical(r);
+                const check = (val) => String(val).toUpperCase().includes('SI') ? '<span class="status-dot status-yes"></span>' : '<span class="status-dot status-no"></span>';
+                const l2gIcon = String(r['LEADER_TO_GROW']).toUpperCase().includes('SI') ? '<span class="status-dot status-yes"></span>' : String(r['LEADER_TO_GROW']).toUpperCase().includes('ELEG') ? '<i class="ph ph-prohibit text-slate-300"></i>' : '<span class="status-dot status-no"></span>';
+                tb.innerHTML += `<tr>
+                    <td class="font-medium text-slate-900">${r['DISPLAY_NAME']}</td>
+                    <td>${r['AREA']}</td>
+                    <td>${r['GRADE']}</td>
+                    <td class="text-center">${isCrit ? '<i class="ph ph-star text-amber-400 text-lg"></i>' : '<span class="text-slate-300">-</span>'}</td>
+                    <td class="text-center">${check(r['PDI_SISTEMA'])}</td>
+                    <td class="text-center">${check(r['AÇÃO_CULTURA'])}</td>
+                    <td class="text-center">${l2gIcon}</td>
+                </tr>`;
+        });
+    }
+    
+    function toggleGrade12() {
+        State.grade12Only = !State.grade12Only;
+        const btn = document.getElementById('btn-grade12');
+        const icon = document.getElementById('icon-grade12');
+        if(State.grade12Only) { btn.className = "btn-exec btn-exec-primary"; icon.className = "ph ph-check-square"; } 
+        else { btn.className = "btn-exec"; icon.className = "ph ph-square"; }
+        renderLideranca();
+    }
+    
+    function searchTable(id, term) { const rows = document.querySelectorAll(`#${id} tbody tr`); rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(term.toLowerCase()) ? '' : 'none'); }
+    function countBy(arr, key) { const r = {}; arr.forEach(x => { const k=x[key]||'N/A'; r[k]=(r[k]||0)+1; }); return r; }
+    function isCritical(r) { if (['SIM','YES'].includes(String(r['CRITICAL_TALENT']).toUpperCase())) return true; if (r['ID'] && State.criticalTalentsMap.has(String(r['ID']))) return true; if (r['DISPLAY_NAME'] && State.criticalTalentsMap.has(String(r['DISPLAY_NAME']).toUpperCase())) return true; if (r['NOME_COMPLETO'] && State.criticalTalentsMap.has(String(r['NOME_COMPLETO']).toUpperCase())) return true; return false; }
+    function setVal(id, v) { const el = document.getElementById(id); if(el) el.innerText = v; }
+    function setTxt(id, v) { const el = document.getElementById(id); if(el) el.innerText = v; }
+    function fmtDate(v) { if(!v) return ""; try { return (typeof v === 'number' ? new Date((v-25569)*864e5) : new Date(v)).toISOString().slice(0,7); } catch { return ""; } }
+    
+    function exportTableToExcel(tableID, filename = '') {
+        const table = document.getElementById(tableID);
+        const wb = XLSX.utils.table_to_book(table, {sheet: "Sheet1"});
+        XLSX.writeFile(wb, filename ? filename + '.xlsx' : 'Export.xlsx');
+    }
+</script>
+</body>
+</html>

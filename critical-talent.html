@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Talentos Críticos · People Strategy</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        /* 9-Box Grid */
+        .nine-box-grid {
+            display: grid;
+            grid-template-columns: 28px repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr) 28px;
+            gap: 6px;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        .nbox-axis-y {
+            grid-row: 1 / span 3; grid-column: 1;
+            display: flex; align-items: center; justify-content: center;
+            writing-mode: vertical-rl; transform: rotate(180deg);
+            font-size: 0.6rem; font-weight: 700; color: var(--text-light);
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        .nbox-axis-x {
+            grid-row: 4; grid-column: 2 / span 3;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.6rem; font-weight: 700; color: var(--text-light);
+            text-transform: uppercase; letter-spacing: 0.08em;
+            padding: 0 4px;
+        }
+        .nbox-cell {
+            background: white;
+            border: 1.5px solid var(--border-soft);
+            border-radius: 10px;
+            padding: 0.6rem 0.5rem;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 88px;
+            position: relative;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .nbox-cell:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.06); z-index: 1; }
+        .nbox-cell.is-critical { background: #FFFBEB; border-color: #FCD34D; border-width: 2px; }
+        .nbox-num {
+            position: absolute; top: 5px; left: 7px;
+            font-size: 0.58rem; font-weight: 800; color: var(--text-light);
+        }
+        .nbox-count { font-size: 1.75rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+        .nbox-cell.is-critical .nbox-count { color: #B45309; }
+        .nbox-pct { font-size: 0.62rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+        .nbox-cell.is-critical .nbox-pct { color: #92400E; }
+        .nbox-label { font-size: 0.56rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; line-height: 1.2; }
+        .nbox-cell.is-critical .nbox-label { color: #B45309; }
+
+        /* Comparatio bands */
+        .cr-band { display: flex; flex-direction: column; gap: 6px; }
+        .cr-band-row { display: flex; align-items: center; gap: 10px; }
+        .cr-band-label { font-size: 0.72rem; font-weight: 600; width: 110px; flex-shrink: 0; }
+        .cr-band-track { flex: 1; height: 20px; border-radius: 6px; background: #F1F5F9; overflow: hidden; position: relative; }
+        .cr-band-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.65rem; font-weight: 700; color: white; transition: width 0.5s ease; }
+        .cr-band-count { font-size: 0.72rem; font-weight: 700; width: 40px; text-align: right; flex-shrink: 0; }
+        .cr-band-pct { font-size: 0.65rem; color: var(--text-muted); width: 36px; flex-shrink: 0; }
+
+        /* UNI ORG accordion */
+        .uni-org-block { background: white; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+        .uni-org-header { padding: 0.85rem 1.1rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; user-select: none; }
+        .uni-org-header:hover { background: #F8FAFC; }
+        .uni-org-areas { padding: 0 1.1rem 0.75rem; display: none; }
+        .uni-org-areas.open { display: block; }
+        .area-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-b border-slate-50: ; }
+        .area-bar { flex: 1; height: 6px; background: #F1F5F9; border-radius: 3px; overflow: hidden; }
+        .area-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #FCD34D, #F59E0B); }
+
+        /* Comp scatter simplified */
+        .comp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+        /* Highlight badge */
+        .ct-scope-badge {
+            background: linear-gradient(135deg, #FEF3C7, #FFF7ED);
+            border: 1.5px solid #FCD34D;
+            border-radius: 10px;
+            padding: 0.7rem 1.1rem;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.78rem; color: #78350F;
+        }
+        .ct-scope-badge i { font-size: 1.2rem; color: #D97706; flex-shrink: 0; }
+        .ct-scope-badge strong { color: #92400E; }
+    </style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash-screen" class="splash-screen splash-amber">
+    <div class="splash-blob-tl"></div>
+    <div class="splash-blob-br"></div>
+    <a href="hub.html" class="splash-back-link"><i class="ph ph-house"></i> Voltar ao Hub</a>
+    <div class="splash-content">
+        <div class="splash-logo"><i class="ph-fill ph-star"></i></div>
+        <h1 class="splash-title">Análise de Talentos Críticos</h1>
+        <p class="splash-subtitle">Box 6 · 7 · 8 · 9</p>
+        <p class="splash-tagline">
+            <strong>Quem são os talentos que mais importam reter?</strong><br>
+            Carregue a base de Critical Talent para visualizar distribuição, Comparatio e PDI dos colaboradores mapeados.
+        </p>
+        <div class="splash-uploads single">
+            <label class="splash-upload-card" id="card-ct">
+                <input type="file" id="file-ct" accept=".xlsx" onchange="markLoaded('card-ct')">
+                <i class="ph ph-check-circle splash-upload-check"></i>
+                <div class="splash-upload-icon"><i class="ph-fill ph-star"></i></div>
+                <div class="splash-upload-title">Carregue a base de Critical Talent</div>
+                <div class="splash-upload-desc">Mapeamento 9-Box, Comparatio, PDI e distribuição organizacional</div>
+            </label>
+        </div>
+        <button class="splash-process-btn" onclick="processFile()">
+            <span id="btn-text">Acessar Dashboard</span>
+            <i class="ph ph-arrow-right" id="btn-icon"></i>
+            <i class="ph ph-spinner animate-spin hidden" id="spinner"></i>
+        </button>
+        <div class="splash-privacy-note">
+            <i class="ph-fill ph-lock-key"></i>
+            <span><strong>Privacidade garantida.</strong> Seus dados são processados localmente no seu navegador. Nada é armazenado ou enviado para servidores.</span>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<main class="main-content" id="main-app" style="display: none;">
+
+    <div class="header-stack">
+        <header class="top-bar">
+            <div class="brand-mini">
+                <a href="hub.html" style="display:flex;align-items:center;gap:0.7rem;text-decoration:none;color:inherit;">
+                    <div class="brand-mini-logo" style="background:linear-gradient(135deg,#FCD34D 0%,#F59E0B 100%);">
+                        <i class="ph-fill ph-star"></i>
+                    </div>
+                    <div class="brand-mini-text">
+                        <h1>Análise de Talentos Críticos</h1>
+                        <p style="color:#B45309;">Box 6 · 7 · 8 · 9</p>
+                    </div>
+                </a>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="hub.html" class="btn-exec btn-exec-primary" style="background:#F59E0B;border-color:#F59E0B;">
+                    <i class="ph-fill ph-house"></i>
+                    <span>Voltar ao Hub</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="filters-area">
+            <div class="filters-label"><i class="ph ph-faders"></i> Filtros Globais</div>
+            <div id="filter-bar" class="flex flex-wrap gap-2 items-center relative"></div>
+        </div>
+
+        <nav class="tab-nav">
+            <div onclick="switchTab('exec')" id="nav-exec" class="tab-item active">
+                <i class="ph ph-squares-four"></i> <span>Visão Executiva</span>
+            </div>
+            <div onclick="switchTab('dist')" id="nav-dist" class="tab-item">
+                <i class="ph ph-chart-pie"></i> <span>Distribuições</span>
+            </div>
+            <div onclick="switchTab('comp')" id="nav-comp" class="tab-item">
+                <i class="ph ph-currency-circle-dollar"></i> <span>Compensação</span>
+            </div>
+            <div onclick="switchTab('pdi')" id="nav-pdi" class="tab-item">
+                <i class="ph ph-clipboard-text"></i> <span>PDI</span>
+            </div>
+            <div onclick="switchTab('table')" id="nav-table" class="tab-item">
+                <i class="ph ph-table"></i> <span>Analítico</span>
+            </div>
+            <div onclick="switchTab('gloss')" id="nav-gloss" class="tab-item tab-gloss">
+                <i class="ph ph-book-bookmark"></i> <span>Glossário</span>
+            </div>
+        </nav>
+    </div>
+
+    <div class="dashboard-scroll">
+        <div class="max-w-[1600px] mx-auto pb-12">
+
+            <!-- ===== VISÃO EXECUTIVA ===== -->
+            <div id="view-exec" class="view-section space-y-4">
+                <div class="page-header">
+                    <h2>Análise de Talentos Críticos</h2>
+                    <p>Colaboradores mapeados como Critical Talent (Box 6, 7, 8 e 9).</p>
+                </div>
+
+                <div class="ct-scope-badge">
+                    <i class="ph-fill ph-star"></i>
+                    <p><strong>Escopo desta análise:</strong> Este dashboard considera exclusivamente colaboradores classificados como <strong>Talentos Críticos</strong> na última rodada de Talent Review, posicionados nos <strong>Boxes 6, 7, 8 ou 9</strong>. Não representa a população total da organização.</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:#FEF3C7;color:#D97706;"><i class="ph-fill ph-star"></i></div>
+                            <div class="kpi-exec-label">Total na Análise</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:#D97706;" id="kpi-total">-</div>
+                        <div class="kpi-exec-comp" id="kpi-total-sub">Talentos Críticos</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--primary-light);color:var(--primary);"><i class="ph ph-clipboard-text"></i></div>
+                            <div class="kpi-exec-label">PDI Ativo</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--primary);" id="kpi-pdi">-</div>
+                        <div class="kpi-exec-comp" id="kpi-pdi-sub">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success);"><i class="ph ph-trend-up"></i></div>
+                            <div class="kpi-exec-label">Comparatio Médio</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--success);" id="kpi-cr-med">-</div>
+                        <div class="kpi-exec-comp" id="kpi-cr-sub">Posição na faixa salarial</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger);"><i class="ph ph-warning"></i></div>
+                            <div class="kpi-exec-label">Abaixo de 80%</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--danger);" id="kpi-cr-low">-</div>
+                        <div class="kpi-exec-comp">Críticos em atenção salarial</div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title"><span class="section-number">1.</span> MATRIZ 9-BOX · DISTRIBUIÇÃO</div>
+                    <p class="text-xs text-slate-500 mb-5">Boxes destacados (6, 7, 8 e 9) — toda a população desta análise.</p>
+
+                    <div class="nine-box-grid">
+                        <div class="nbox-axis-y">Performance (Y)</div>
+
+                        <!-- Y=3 (alto) -->
+                        <div class="nbox-cell" id="cell-7">
+                            <div class="nbox-num">07</div>
+                            <div class="nbox-count" id="cnt-7">0</div>
+                            <div class="nbox-pct" id="pct-7">0%</div>
+                            <div class="nbox-label">Especialista</div>
+                        </div>
+                        <div class="nbox-cell is-critical" id="cell-8">
+                            <div class="nbox-num">08</div>
+                            <div class="nbox-count" id="cnt-8">0</div>
+                            <div class="nbox-pct" id="pct-8">0%</div>
+                            <div class="nbox-label">Alto Desempenho</div>
+                        </div>
+                        <div class="nbox-cell is-critical" id="cell-9">
+                            <div class="nbox-num">09</div>
+                            <div class="nbox-count" id="cnt-9">0</div>
+                            <div class="nbox-pct" id="pct-9">0%</div>
+                            <div class="nbox-label">Estrela</div>
+                        </div>
+
+                        <!-- Y=2 (médio) -->
+                        <div class="nbox-cell" id="cell-4">
+                            <div class="nbox-num">04</div>
+                            <div class="nbox-count" id="cnt-4">0</div>
+                            <div class="nbox-pct" id="pct-4">0%</div>
+                            <div class="nbox-label">Prof. Eficaz</div>
+                        </div>
+                        <div class="nbox-cell" id="cell-5">
+                            <div class="nbox-num">05</div>
+                            <div class="nbox-count" id="cnt-5">0</div>
+                            <div class="nbox-pct" id="pct-5">0%</div>
+                            <div class="nbox-label">Prof. Chave</div>
+                        </div>
+                        <div class="nbox-cell is-critical" id="cell-6">
+                            <div class="nbox-num">06</div>
+                            <div class="nbox-count" id="cnt-6">0</div>
+                            <div class="nbox-pct" id="pct-6">0%</div>
+                            <div class="nbox-label">Forte Potencial</div>
+                        </div>
+
+                        <!-- Y=1 (baixo) -->
+                        <div class="nbox-cell" id="cell-1">
+                            <div class="nbox-num">01</div>
+                            <div class="nbox-count" id="cnt-1">0</div>
+                            <div class="nbox-pct" id="pct-1">0%</div>
+                            <div class="nbox-label">Questionável</div>
+                        </div>
+                        <div class="nbox-cell" id="cell-2">
+                            <div class="nbox-num">02</div>
+                            <div class="nbox-count" id="cnt-2">0</div>
+                            <div class="nbox-pct" id="pct-2">0%</div>
+                            <div class="nbox-label">Inc. Performer</div>
+                        </div>
+                        <div class="nbox-cell" id="cell-3">
+                            <div class="nbox-num">03</div>
+                            <div class="nbox-count" id="cnt-3">0</div>
+                            <div class="nbox-pct" id="pct-3">0%</div>
+                            <div class="nbox-label">Diamante Bruto</div>
+                        </div>
+
+                        <div class="nbox-axis-x">
+                            <span>← Baixo Potencial</span>
+                            <span>Alto Potencial →</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-bar">
+                    <i class="ph ph-info"></i>
+                    <p><strong>NOTA:</strong> Os percentuais na matriz representam a proporção de cada box sobre o total de Critical Talents no filtro atual. Use as abas <strong>Distribuições</strong> para perfil organizacional, <strong>Compensação</strong> para análise de Comparatio e <strong>PDI</strong> para planos de desenvolvimento.</p>
+                </div>
+            </div>
+
+            <!-- ===== DISTRIBUIÇÕES ===== -->
+            <div id="view-dist" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Distribuições</h2>
+                    <p>Perfil dos talentos críticos por dimensões organizacionais.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> POR GRADE</div>
+                        <div class="h-64"><canvas id="chart-grade"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">2.</span> POR PAÍS</div>
+                        <div class="h-64"><canvas id="chart-pais"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title"><span class="section-number">3.</span> POR UNI ORG E ÁREA</div>
+                    <div id="uni-org-container" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- ===== COMPENSAÇÃO ===== -->
+            <div id="view-comp" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Compensação · Comparatio</h2>
+                    <p>Posicionamento salarial dos talentos críticos em relação ao meio da faixa. Abaixo de 80% merece atenção.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="kpi-exec" style="border-top:3px solid var(--danger);">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger);"><i class="ph ph-trend-down"></i></div>
+                            <div class="kpi-exec-label">Abaixo de 80%</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--danger);" id="cr-low-n">-</div>
+                        <div class="kpi-exec-comp" id="cr-low-pct">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top:3px solid var(--success);">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success);"><i class="ph ph-equals"></i></div>
+                            <div class="kpi-exec-label">Faixa Ideal (80-120%)</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--success);" id="cr-mid-n">-</div>
+                        <div class="kpi-exec-comp" id="cr-mid-pct">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top:3px solid #7C3AED;">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--purple-light);color:var(--purple);"><i class="ph ph-trend-up"></i></div>
+                            <div class="kpi-exec-label">Acima de 120%</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--purple);" id="cr-high-n">-</div>
+                        <div class="kpi-exec-comp" id="cr-high-pct">-</div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title"><span class="section-number">1.</span> DISTRIBUIÇÃO DO COMPARATIO</div>
+                    <div class="mb-4 flex flex-wrap items-center gap-4 text-xs">
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded" style="background:var(--danger);"></span> Abaixo de 80%</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded" style="background:var(--success);"></span> Faixa Ideal 80–120%</span>
+                        <span class="flex items-center gap-2"><span class="w-3 h-3 rounded" style="background:var(--purple);"></span> Acima de 120%</span>
+                    </div>
+                    <div id="comp-bands-container" class="cr-band space-y-3"></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">2.</span> COMPARATIO MÉDIO POR BOX</div>
+                        <div class="h-64"><canvas id="chart-cr-box"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">3.</span> COMPARATIO MÉDIO POR UNI ORG</div>
+                        <div id="cr-uni-org-list" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <div class="section-block" style="border-left:4px solid var(--danger);">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0"><i class="ph ph-warning" style="color:var(--danger);"></i> TALENTOS CRÍTICOS · COMPARATIO ABAIXO DE 80%</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('low-cr-table',this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('low-cr-table','CT_Baixo_Comparatio')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+                        <table id="low-cr-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>UNI ORG</th>
+                                    <th>HRBP</th>
+                                    <th class="text-center">Box</th>
+                                    <th class="text-center">Grade</th>
+                                    <th class="text-right">Comparatio</th>
+                                    <th>Gerente</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+                <div class="section-block" style="border-top: 3px solid #DC2626;">
+                    <div class="section-title"><span class="section-number" style="color:#DC2626;">!</span> QUADRANTE DE RISCO DE RETENÇÃO</div>
+                    <p class="text-xs text-slate-500 mb-4">Cruzamento entre Comparatio e Overall 2024. O quadrante <strong class="text-red-600">Alta Performance + Baixo Comparatio</strong> representa os talentos de maior risco de perda.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                        <div>
+                            <div class="h-80"><canvas id="chart-risk-scatter"></canvas></div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold text-red-800">🔴 Alta Performance + Baixo CR</span>
+                                    <span class="text-xl font-extrabold text-red-600" id="risk-q-hl">-</span>
+                                </div>
+                                <p class="text-[11px] text-red-700">Overall ≥ 4 + Comparatio &lt; 80%. Prioridade máxima de ação salarial.</p>
+                            </div>
+                            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold text-amber-800">🟡 Alta Performance + CR Ideal</span>
+                                    <span class="text-xl font-extrabold text-amber-600" id="risk-q-hm">-</span>
+                                </div>
+                                <p class="text-[11px] text-amber-700">Overall ≥ 4 + Comparatio 80–120%. Situação saudável, monitorar.</p>
+                            </div>
+                            <div class="p-3 bg-purple-50 border border-purple-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold text-purple-800">🟣 Alta Performance + CR Alto</span>
+                                    <span class="text-xl font-extrabold text-purple-600" id="risk-q-hh">-</span>
+                                </div>
+                                <p class="text-[11px] text-purple-700">Overall ≥ 4 + Comparatio &gt; 120%. Avaliar estrutura de carreira.</p>
+                            </div>
+                            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs font-bold text-slate-700">⚪ Demais Combinações</span>
+                                    <span class="text-xl font-extrabold text-slate-500" id="risk-q-other">-</span>
+                                </div>
+                                <p class="text-[11px] text-slate-600">Performance &lt; 4. Acompanhar individualmente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- ===== PDI ===== -->
+            <div id="view-pdi" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>PDI dos Talentos Críticos</h2>
+                    <p>Acompanhamento dos planos de desenvolvimento individual.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success);"><i class="ph ph-check-circle"></i></div>
+                            <div class="kpi-exec-label">Com PDI Ativo</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--success);" id="pdi-com">-</div>
+                        <div class="kpi-exec-comp" id="pdi-com-sub">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger);"><i class="ph ph-x-circle"></i></div>
+                            <div class="kpi-exec-label">Sem PDI</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--danger);" id="pdi-sem">-</div>
+                        <div class="kpi-exec-comp" id="pdi-sem-sub">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:#FEF3C7;color:#D97706;"><i class="ph ph-percent"></i></div>
+                            <div class="kpi-exec-label">Taxa de Cobertura</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:#D97706;" id="pdi-taxa">-</div>
+                        <div class="kpi-exec-comp">% com PDI ativo</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title">PDI POR BOX</div>
+                        <div class="h-72"><canvas id="chart-pdi-box"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title">PDI POR UNI ORG</div>
+                        <div id="pdi-uni-list" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0">CRÍTICOS SEM PDI · PRIORIDADE DE AÇÃO</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('sem-pdi-table',this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('sem-pdi-table','CT_Sem_PDI')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+                        <table id="sem-pdi-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>UNI ORG</th>
+                                    <th>HRBP</th>
+                                    <th>Área</th>
+                                    <th class="text-center">Box</th>
+                                    <th class="text-center">Grade</th>
+                                    <th class="text-right">Comparatio</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== ANALÍTICO ===== -->
+            <div id="view-table" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Analítico Completo</h2>
+                    <p>Todos os talentos críticos com os filtros aplicados.</p>
+                </div>
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="text-xs text-slate-500 font-medium" id="table-count">-</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('main-table',this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('main-table','Critical_Talent_Analitico')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="main-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>UNI ORG</th>
+                                    <th>HRBP</th>
+                                    <th>Área</th>
+                                    <th class="text-center">Box</th>
+                                    <th class="text-center">Grade</th>
+                                    <th>País</th>
+                                    <th class="text-center">Tempo Empresa</th>
+                                    <th class="text-right">Comparatio</th>
+                                    <th class="text-center">Overall 2024</th>
+                                    <th class="text-center">PDI</th>
+                                    <th>Gerente</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== GLOSSÁRIO ===== -->
+            <div id="view-gloss" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Glossário</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <h3 class="font-bold text-slate-900 mb-4">Talentos Críticos · Boxes 6, 7, 8 e 9</h3>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="border-b border-slate-100 pb-3"><span class="font-semibold text-amber-700 text-sm block mb-1">Box 9 · Estrela</span>Alta performance + alto potencial. Próxima geração da liderança.</li>
+                            <li class="border-b border-slate-100 pb-3"><span class="font-semibold text-amber-700 text-sm block mb-1">Box 8 · Alto Desempenho</span>Alta performance + médio potencial. Pilar atual da operação.</li>
+                            <li class="border-b border-slate-100 pb-3"><span class="font-semibold text-amber-700 text-sm block mb-1">Box 7 · Especialista</span>Alta performance + baixo potencial. Excelência técnica consolidada.</li>
+                            <li><span class="font-semibold text-amber-700 text-sm block mb-1">Box 6 · Forte Potencial</span>Performance média + alto potencial. Investimento de médio prazo.</li>
+                        </ul>
+                    </div>
+                    <div class="section-block">
+                        <h3 class="font-bold text-slate-900 mb-4">Comparatio</h3>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="flex gap-3"><span class="w-2.5 h-2.5 mt-1 rounded-full bg-red-500 shrink-0"></span><div><strong class="block text-red-700 mb-0.5">Abaixo de 80%</strong>Talento abaixo do mínimo da faixa. Risco de saída por motivos salariais. Prioridade de revisão.</div></li>
+                            <li class="flex gap-3"><span class="w-2.5 h-2.5 mt-1 rounded-full bg-emerald-500 shrink-0"></span><div><strong class="block text-emerald-700 mb-0.5">80% a 120% (Faixa Ideal)</strong>Posicionado dentro da faixa esperada para a função e grade. Situação saudável.</div></li>
+                            <li class="flex gap-3"><span class="w-2.5 h-2.5 mt-1 rounded-full bg-purple-500 shrink-0"></span><div><strong class="block text-purple-700 mb-0.5">Acima de 120%</strong>Acima do teto da faixa. Pode indicar necessidade de promoção ou reclassificação.</div></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        Desenvolvido por <strong>Vinicius Carlos</strong> · HRBP Negócios BR · <a href="hub.html" style="color:inherit;text-decoration:underline;">Voltar ao Hub</a>
+    </footer>
+</main>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const State = {
+    raw: [], filtered: [],
+    filters: { uniOrg: [], hrbp: [], area: [], box: [], grade: [], pais: [] },
+    charts: {}, activeView: 'exec', dirtyViews: new Set()
+};
+
+const VIEW_RENDERS = {
+    exec: () => renderExec(), dist: () => renderDist(), comp: () => renderComp(),
+    pdi: () => renderPDI(), table: () => renderTable(), gloss: () => {}
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function clean(v) {
+    if (v === undefined || v === null) return '';
+    const s = String(v).trim();
+    return ['NAN', 'UNDEFINED', '-', 'N/A'].includes(s.toUpperCase()) ? '' : s;
+}
+function isPdi(v) { return String(v || '').toUpperCase().trim() === 'SIM'; }
+
+function tempoEmpresa(admissao) {
+    if (!admissao) return null;
+    try {
+        const adm = new Date(admissao);
+        if (isNaN(adm)) return null;
+        const anos = (new Date() - adm) / (365.25 * 24 * 3600 * 1000);
+        return anos > 0 ? anos : null;
+    } catch { return null; }
+}
+
+function tempoFmt(anos) {
+    if (anos === null) return '-';
+    if (anos < 1) return Math.round(anos * 12) + 'm';
+    return anos.toFixed(1) + 'a';
+}
+function crBand(v) {
+    const n = parseFloat(v);
+    if (isNaN(n)) return 'sem-dado';
+    if (n < 0.8) return 'low';
+    if (n <= 1.2) return 'mid';
+    return 'high';
+}
+function crFmt(v) {
+    const n = parseFloat(v);
+    return isNaN(n) ? '-' : (n * 100).toFixed(1) + '%';
+}
+function markLoaded(id) { document.getElementById(id).classList.add('loaded'); }
+
+// ============================================================
+// FILE LOAD
+// ============================================================
+async function processFile() {
+    const btnText = document.getElementById('btn-text');
+    const spin = document.getElementById('spinner');
+    const btnIcon = document.getElementById('btn-icon');
+    if (typeof XLSX === 'undefined') { alert('Biblioteca XLSX carregando...'); return; }
+    const f = document.getElementById('file-ct').files[0];
+    if (!f) { alert('Selecione a base de Critical Talent.'); return; }
+    btnText.innerText = 'Lendo arquivo...';
+    btnIcon.classList.add('hidden'); spin.classList.remove('hidden');
+    try {
+        const ab = await f.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+        const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+        if (!data.length) { alert('Arquivo vazio.'); return; }
+        State.raw = data.map(r => ({
+            uniOrg:    clean(r['UNI ORG']),
+            hrbp:      clean(r['HRBP']),
+            area:      clean(r['AREA']),
+            nome:      clean(r['Nome']),
+            box:       String(r['BOX Matriz'] || '').trim(),
+            grade:     String(r['GRADE'] || '').trim(),
+            pais:      clean(r['PAIS']),
+            gerente:   clean(r['Gerente']),
+            comparatio: parseFloat(r['Comparatio']) || null,
+            pdi:       clean(r['PDI']),
+            overall:   r['Overall 2024'] !== '' ? r['Overall 2024'] : null,
+            posY:      clean(r['Posição Y ']),
+            posX:      clean(r['Posição X']),
+            id:        clean(r['ID do colaborador']),
+            admissao:  r['Data de admissão'] || null
+        }));
+        document.getElementById('splash-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        document.body.classList.add('splash-closed');
+        initFilters();
+    } catch (e) { alert('Erro ao processar arquivo.'); console.error(e); }
+    finally { btnText.innerText = 'Acessar Dashboard'; btnIcon.classList.remove('hidden'); spin.classList.add('hidden'); }
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+let _ftimer = null;
+function debouncedApply() { clearTimeout(_ftimer); _ftimer = setTimeout(applyFilters, 350); }
+
+function initFilters() {
+    const keys = [['UNI ORG','uniOrg'],['HRBP','hrbp'],['ÁREA','area'],['BOX','box'],['GRADE','grade'],['PAÍS','pais']];
+    const bar = document.getElementById('filter-bar');
+    bar.innerHTML = '';
+    keys.forEach(([lbl, k]) => {
+        const wrap = document.createElement('div'); wrap.className = 'relative';
+        const btn = document.createElement('button');
+        btn.className = 'filter-pill'; btn.id = `btn-${k}`;
+        btn.innerHTML = `<span>${lbl}: <span id="lbl-${k}" class="font-normal text-xs ml-1">Todos</span></span><i class="ph ph-caret-down"></i>`;
+        btn.onclick = e => { e.stopPropagation(); toggleDropdown(k); };
+        const dd = document.createElement('div'); dd.className = 'dropdown-menu'; dd.id = `dd-${k}`;
+        wrap.appendChild(btn); wrap.appendChild(dd); bar.appendChild(wrap);
+    });
+    const clr = document.createElement('button');
+    clr.className = 'text-[10px] text-amber-700 font-semibold hover:bg-amber-50 px-3 py-1 rounded ml-auto transition';
+    clr.innerHTML = 'LIMPAR FILTROS';
+    clr.onclick = () => { Object.keys(State.filters).forEach(k => State.filters[k] = []); debouncedApply(); };
+    bar.appendChild(clr);
+    applyFilters();
+    window.onclick = () => document.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('show'));
+}
+
+function getCascadeOptions(targetKey) {
+    let d = State.raw;
+    const f = State.filters;
+    const col = { uniOrg:'uniOrg', hrbp:'hrbp', area:'area', box:'box', grade:'grade', pais:'pais' };
+    Object.keys(col).forEach(k => { if (k !== targetKey && f[k].length) d = d.filter(r => f[k].includes(r[col[k]])); });
+    let opts = [...new Set(d.map(r => r[col[targetKey]]))].filter(Boolean);
+    return (targetKey === 'box' || targetKey === 'grade') ? opts.sort((a,b) => parseFloat(a)-parseFloat(b)) : opts.sort();
+}
+
+function toggleDropdown(key) {
+    document.querySelectorAll('.dropdown-menu').forEach(d => { if (d.id !== `dd-${key}`) d.classList.remove('show'); });
+    const dd = document.getElementById(`dd-${key}`);
+    const opts = getCascadeOptions(key);
+    dd.innerHTML = `<div class="p-2 border-b border-slate-100 mb-1 text-xs font-semibold text-amber-700 cursor-pointer hover:bg-slate-50 rounded" onclick="toggleAll('${key}',${opts.length})">(Selecionar Todos)</div>`;
+    opts.forEach(val => {
+        const chk = State.filters[key].includes(val);
+        const safe = String(val).replace(/'/g,"\\'");
+        dd.innerHTML += `<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs text-slate-700 rounded"><input type="checkbox" class="accent-amber-600" ${chk?'checked':''} onchange="handleSel('${key}','${safe}',this.checked)"> ${val}</label>`;
+    });
+    dd.classList.toggle('show');
+}
+
+function toggleAll(key, total) { const o = getCascadeOptions(key); State.filters[key] = (State.filters[key].length===total && total>0) ? [] : o; debouncedApply(); }
+function handleSel(key, val, checked) { if (checked) State.filters[key].push(val); else State.filters[key] = State.filters[key].filter(v=>v!==val); debouncedApply(); }
+
+function applyFilters() {
+    Object.keys(State.filters).forEach(k => {
+        const len = State.filters[k].length;
+        const el = document.getElementById(`lbl-${k}`);
+        const btn = document.getElementById(`btn-${k}`);
+        if (el && btn) { if (!len) { el.innerText='Todos'; btn.classList.remove('active'); } else { el.innerText=len>1?`(${len})`:State.filters[k][0]; btn.classList.add('active'); } }
+    });
+    const f = State.filters;
+    State.filtered = State.raw.filter(r =>
+        (!f.uniOrg.length || f.uniOrg.includes(r.uniOrg)) &&
+        (!f.hrbp.length  || f.hrbp.includes(r.hrbp))    &&
+        (!f.area.length  || f.area.includes(r.area))     &&
+        (!f.box.length   || f.box.includes(r.box))       &&
+        (!f.grade.length || f.grade.includes(r.grade))   &&
+        (!f.pais.length  || f.pais.includes(r.pais))
+    );
+    if (VIEW_RENDERS[State.activeView]) VIEW_RENDERS[State.activeView]();
+    Object.keys(VIEW_RENDERS).forEach(v => { if (v !== State.activeView) State.dirtyViews.add(v); });
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.view-section').forEach(e => e.classList.add('hidden'));
+    document.getElementById('view-'+id).classList.remove('hidden');
+    document.querySelectorAll('.tab-item').forEach(e => e.classList.remove('active'));
+    document.getElementById('nav-'+id).classList.add('active');
+    State.activeView = id;
+    if (State.dirtyViews.has(id) && VIEW_RENDERS[id]) { VIEW_RENDERS[id](); State.dirtyViews.delete(id); }
+    window.dispatchEvent(new Event('resize'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================================================
+// RENDER: VISÃO EXECUTIVA
+// ============================================================
+function renderExec() {
+    const d = State.filtered; const n = d.length;
+    const boxCnt = {}; [1,2,3,4,5,6,7,8,9].forEach(b => boxCnt[b] = 0);
+    d.forEach(r => { const b = parseInt(r.box); if (!isNaN(b) && b>=1 && b<=9) boxCnt[b]++; });
+    [1,2,3,4,5,6,7,8,9].forEach(b => {
+        const c = boxCnt[b];
+        const pct = n ? Math.round(c/n*100) : 0;
+        const cEl = document.getElementById(`cnt-${b}`); if (cEl) cEl.innerText = c;
+        const pEl = document.getElementById(`pct-${b}`); if (pEl) pEl.innerText = pct+'%';
+    });
+    document.getElementById('kpi-total').innerText = n;
+    const pdiOk = d.filter(r => isPdi(r.pdi)).length;
+    document.getElementById('kpi-pdi').innerText = pdiOk;
+    document.getElementById('kpi-pdi-sub').innerText = n ? Math.round(pdiOk/n*100)+'% com plano' : '-';
+    const crVals = d.map(r => r.comparatio).filter(v => v !== null);
+    const crMed = crVals.length ? crVals.reduce((a,b)=>a+b,0)/crVals.length : 0;
+    document.getElementById('kpi-cr-med').innerText = crMed ? (crMed*100).toFixed(1)+'%' : '-';
+    const crLow = d.filter(r => r.comparatio !== null && r.comparatio < 0.8).length;
+    document.getElementById('kpi-cr-low').innerText = crLow;
+}
+
+// ============================================================
+// RENDER: DISTRIBUIÇÕES
+// ============================================================
+function renderDist() {
+    const d = State.filtered;
+    const gradeCnt = {}; const paisCnt = {};
+    d.forEach(r => {
+        if (r.grade) gradeCnt[r.grade] = (gradeCnt[r.grade]||0)+1;
+        if (r.pais)  paisCnt[r.pais]  = (paisCnt[r.pais]||0)+1;
+    });
+    const grSorted = Object.entries(gradeCnt).sort((a,b)=>parseFloat(a[0])-parseFloat(b[0]));
+    renderBarChart('chart-grade', grSorted.map(x=>'G'+x[0]), grSorted.map(x=>x[1]), '#F59E0B');
+    const pSorted = Object.entries(paisCnt).sort((a,b)=>b[1]-a[1]);
+    renderDoughnut('chart-pais', pSorted.map(x=>x[0]), pSorted.map(x=>x[1]), ['#F59E0B','#EC4899','#A855F7','#0891B2','#10B981','#94A3B8']);
+
+    // UNI ORG com áreas
+    const uniMap = {};
+    d.forEach(r => {
+        if (!r.uniOrg) return;
+        if (!uniMap[r.uniOrg]) uniMap[r.uniOrg] = { total: 0, areas: {} };
+        uniMap[r.uniOrg].total++;
+        const a = r.area || 'Sem Área';
+        uniMap[r.uniOrg].areas[a] = (uniMap[r.uniOrg].areas[a]||0)+1;
+    });
+    const totalAll = d.length || 1;
+    const container = document.getElementById('uni-org-container');
+    container.innerHTML = '';
+    Object.entries(uniMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name, v]) => {
+        const pct = Math.round(v.total/totalAll*100);
+        const areas = Object.entries(v.areas).sort((a,b)=>b[1]-a[1]);
+        const blockId = 'uniorg-'+name.replace(/\s+/g,'-');
+        container.innerHTML += `
+            <div class="uni-org-block">
+                <div class="uni-org-header" onclick="toggleUniOrg('${blockId}')">
+                    <div class="flex items-center gap-3">
+                        <i class="ph ph-buildings text-amber-500"></i>
+                        <span class="font-semibold text-slate-900 text-sm">${name}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="badge badge-yellow">${v.total} críticos</span>
+                        <span class="text-xs text-slate-400">${pct}%</span>
+                        <i class="ph ph-caret-down text-slate-400 text-sm"></i>
+                    </div>
+                </div>
+                <div class="uni-org-areas" id="${blockId}">
+                    ${areas.map(([a, c]) => {
+                        const ap = Math.round(c/v.total*100);
+                        return `<div class="flex items-center gap-3 py-2 border-t border-slate-50">
+                            <span class="text-xs text-slate-600 w-48 flex-shrink-0 truncate" title="${a}">${a}</span>
+                            <div class="area-bar flex-1"><div class="area-bar-fill" style="width:${ap}%"></div></div>
+                            <span class="text-xs font-semibold text-amber-700 w-14 text-right">${c} · ${ap}%</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    });
+    if (!container.innerHTML) container.innerHTML = '<div class="text-center text-slate-400 py-6">Sem dados</div>';
+}
+
+function toggleUniOrg(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+}
+
+// ============================================================
+// RENDER: COMPENSAÇÃO
+// ============================================================
+function renderComp() {
+    const d = State.filtered;
+    const crVals = d.filter(r => r.comparatio !== null);
+    const low = crVals.filter(r => r.comparatio < 0.8);
+    const mid = crVals.filter(r => r.comparatio >= 0.8 && r.comparatio <= 1.2);
+    const high = crVals.filter(r => r.comparatio > 1.2);
+    const n = crVals.length || 1;
+
+    document.getElementById('cr-low-n').innerText = low.length;
+    document.getElementById('cr-low-pct').innerText = Math.round(low.length/n*100)+'% dos críticos';
+    document.getElementById('cr-mid-n').innerText = mid.length;
+    document.getElementById('cr-mid-pct').innerText = Math.round(mid.length/n*100)+'% dos críticos';
+    document.getElementById('cr-high-n').innerText = high.length;
+    document.getElementById('cr-high-pct').innerText = Math.round(high.length/n*100)+'% dos críticos';
+
+    // Bands por UNI ORG
+    const uniMap = {};
+    crVals.forEach(r => {
+        if (!r.uniOrg) return;
+        if (!uniMap[r.uniOrg]) uniMap[r.uniOrg] = { low:0, mid:0, high:0, total:0 };
+        uniMap[r.uniOrg].total++;
+        uniMap[r.uniOrg][crBand(r.comparatio) === 'sem-dado' ? 'mid' : crBand(r.comparatio)]++;
+    });
+
+    const bands = document.getElementById('comp-bands-container');
+    bands.innerHTML = '';
+    const maxTotal = Math.max(...Object.values(uniMap).map(v=>v.total), 1);
+    Object.entries(uniMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name, v]) => {
+        const barW = Math.round(v.total/maxTotal*100);
+        const lowPct = Math.round(v.low/v.total*100);
+        const midPct = Math.round(v.mid/v.total*100);
+        const hiPct = Math.round(v.high/v.total*100);
+        bands.innerHTML += `
+            <div class="cr-band-row">
+                <div class="cr-band-label text-xs font-semibold text-slate-700 truncate" title="${name}">${name}</div>
+                <div class="cr-band-track" style="max-width:${barW}%;">
+                    <div style="height:100%; display:flex; border-radius:6px; overflow:hidden;">
+                        ${v.low  ? `<div style="width:${lowPct}%;background:#DC2626;" title="Abaixo 80%: ${v.low}"></div>` : ''}
+                        ${v.mid  ? `<div style="width:${midPct}%;background:#059669;" title="80-120%: ${v.mid}"></div>` : ''}
+                        ${v.high ? `<div style="width:${hiPct}%;background:#7C3AED;" title=">120%: ${v.high}"></div>` : ''}
+                    </div>
+                </div>
+                <div class="cr-band-count">${v.total}</div>
+                <div class="cr-band-pct text-slate-400 text-xs">${Math.round(v.total/n*100)}%</div>
+            </div>`;
+    });
+
+    // Comparatio médio por Box
+    const boxCrMap = {};
+    crVals.forEach(r => {
+        if (!r.box) return;
+        if (!boxCrMap[r.box]) boxCrMap[r.box] = [];
+        boxCrMap[r.box].push(r.comparatio);
+    });
+    const boxKeys = Object.keys(boxCrMap).sort((a,b)=>parseFloat(a)-parseFloat(b));
+    const boxAvgs = boxKeys.map(b => {
+        const vals = boxCrMap[b]; const avg = vals.reduce((a,v)=>a+v,0)/vals.length;
+        return { box: 'Box '+b, avg, color: avg < 0.8 ? '#DC2626' : avg <= 1.2 ? '#059669' : '#7C3AED' };
+    });
+
+    const ctx = document.getElementById('chart-cr-box');
+    if (State.charts['chart-cr-box']) State.charts['chart-cr-box'].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts['chart-cr-box'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: boxAvgs.map(x=>x.box), datasets: [{ data: boxAvgs.map(x=>x.avg), backgroundColor: boxAvgs.map(x=>x.color), borderRadius: 5 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: { color: '#0F172A', font: { weight: 'bold', size: 11 }, anchor: 'end', align: 'end', formatter: v => (v*100).toFixed(0)+'%' },
+                tooltip: { callbacks: { label: ctx => ' Comparatio médio: ' + (ctx.raw*100).toFixed(1)+'%' }, backgroundColor:'rgba(15,23,42,0.95)', titleColor:'#F8FAFC', bodyColor:'#CBD5E1', padding:10, cornerRadius:6 },
+                annotation: {
+                    annotations: {
+                        line80: { type:'line', yMin:0.8, yMax:0.8, borderColor:'rgba(220,38,38,0.4)', borderWidth:1.5, borderDash:[4,4] },
+                        line120: { type:'line', yMin:1.2, yMax:1.2, borderColor:'rgba(124,58,237,0.4)', borderWidth:1.5, borderDash:[4,4] }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color:'#F1F5F9' }, border:{ display:false }, min: 0.4, max: 1.4, ticks: { callback: v => (v*100).toFixed(0)+'%' } }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // ---- QUADRANTE DE RISCO ----
+    const scatter = document.getElementById('chart-risk-scatter');
+    if (scatter) {
+        if (State.charts['chart-risk-scatter']) State.charts['chart-risk-scatter'].destroy();
+        const overallNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+        const pts = crVals.filter(r => overallNum(r.overall) !== null).map(r => {
+            const cr = r.comparatio; const ov = overallNum(r.overall);
+            const isHighPerf = ov >= 4;
+            const color = cr < 0.8 && isHighPerf ? '#DC2626'
+                : cr > 1.2 && isHighPerf ? '#7C3AED'
+                : isHighPerf ? '#059669'
+                : '#94A3B8';
+            return { x: parseFloat((cr*100).toFixed(1)), y: ov, box: r.box, nome: r.nome, color };
+        });
+        
+        // Quadrant counts
+        const ql_hl = pts.filter(p => p.y >= 4 && p.x < 80).length;
+        const ql_hm = pts.filter(p => p.y >= 4 && p.x >= 80 && p.x <= 120).length;
+        const ql_hh = pts.filter(p => p.y >= 4 && p.x > 120).length;
+        const ql_other = pts.filter(p => p.y < 4).length;
+        const setV2 = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
+        setV2('risk-q-hl', ql_hl); setV2('risk-q-hm', ql_hm); setV2('risk-q-hh', ql_hh); setV2('risk-q-other', ql_other);
+        
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        State.charts['chart-risk-scatter'] = new Chart(scatter, {
+            type: 'scatter',
+            data: { datasets: [{ data: pts, backgroundColor: pts.map(p => p.color + 'CC'), pointRadius: 7, pointHoverRadius: 9 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,0.95)', titleColor: '#F8FAFC', bodyColor: '#CBD5E1', padding: 10, cornerRadius: 6,
+                        callbacks: {
+                            title: (items) => pts[items[0].dataIndex].nome,
+                            label: (item) => {
+                                const p = pts[item.dataIndex];
+                                return [`Box ${p.box} · CR: ${item.raw.x.toFixed(1)}% · Overall: ${item.raw.y}`];
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: {
+                            lineV: { type:'line', xMin:80, xMax:80, borderColor:'rgba(220,38,38,0.35)', borderWidth:1.5, borderDash:[5,4] },
+                            lineV2: { type:'line', xMin:120, xMax:120, borderColor:'rgba(124,58,237,0.35)', borderWidth:1.5, borderDash:[5,4] },
+                            lineH: { type:'line', yMin:4, yMax:4, borderColor:'rgba(15,23,42,0.2)', borderWidth:1.5, borderDash:[5,4] }
+                        }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Comparatio (%)', font: { size: 10 } }, grid: { color: '#F1F5F9' }, min: 40, max: 210,
+                        ticks: { callback: v => v+'%' } },
+                    y: { title: { display: true, text: 'Overall 2024', font: { size: 10 } }, grid: { color: '#F1F5F9' }, min: 2.5, max: 5.5,
+                        ticks: { stepSize: 1 } }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+    
+    // Comparatio médio por UNI ORG (lista)
+    const listEl = document.getElementById('cr-uni-org-list');
+    listEl.innerHTML = '';
+    Object.entries(uniMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name, v]) => {
+        const vals = crVals.filter(r => r.uniOrg === name).map(r => r.comparatio);
+        const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+        const color = avg < 0.8 ? '#DC2626' : avg <= 1.2 ? '#059669' : '#7C3AED';
+        const pctBar = Math.min(100, Math.round(avg/1.5*100));
+        listEl.innerHTML += `
+            <div>
+                <div class="flex justify-between items-baseline mb-1.5">
+                    <span class="text-xs font-medium text-slate-700 truncate">${name}</span>
+                    <span class="text-sm font-bold ml-2" style="color:${color}">${(avg*100).toFixed(1)}%</span>
+                </div>
+                <div class="dist-bar-track">
+                    <div class="dist-bar-fill" style="width:${pctBar}%;background:${color}"></div>
+                </div>
+            </div>`;
+    });
+
+    // Tabela abaixo de 80%
+    const tb = document.querySelector('#low-cr-table tbody');
+    tb.innerHTML = '';
+    low.sort((a,b) => a.comparatio - b.comparatio).forEach(r => {
+        tb.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${r.nome}</td>
+            <td class="text-xs">${r.uniOrg||'-'}</td>
+            <td class="text-xs">${r.hrbp||'-'}</td>
+            <td class="text-center"><span class="badge badge-yellow">Box ${r.box||'-'}</span></td>
+            <td class="text-center text-xs text-slate-500">${r.grade||'-'}</td>
+            <td class="text-right font-semibold text-red-600">${crFmt(r.comparatio)}</td>
+            <td class="text-xs">${r.gerente||'-'}</td>
+        </tr>`;
+    });
+    if (!tb.innerHTML) tb.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-3">Nenhum com Comparatio abaixo de 80%</td></tr>';
+}
+
+// ============================================================
+// RENDER: PDI
+// ============================================================
+function renderPDI() {
+    const d = State.filtered; const n = d.length;
+    const comPdi = d.filter(r => isPdi(r.pdi)).length;
+    const semPdi = n - comPdi;
+    const taxa = n ? Math.round(comPdi/n*100) : 0;
+    document.getElementById('pdi-com').innerText = comPdi;
+    document.getElementById('pdi-com-sub').innerText = `${taxa}% do total`;
+    document.getElementById('pdi-sem').innerText = semPdi;
+    document.getElementById('pdi-sem-sub').innerText = `${n ? Math.round(semPdi/n*100) : 0}% do total`;
+    document.getElementById('pdi-taxa').innerText = taxa+'%';
+
+    // PDI por Box
+    const boxPdi = {};
+    d.forEach(r => { const b = r.box||'N/A'; if (!boxPdi[b]) boxPdi[b]={com:0,sem:0}; if (isPdi(r.pdi)) boxPdi[b].com++; else boxPdi[b].sem++; });
+    const bKeys = Object.keys(boxPdi).sort((a,b)=>parseFloat(a)-parseFloat(b));
+    const ctxPdi = document.getElementById('chart-pdi-box');
+    if (State.charts['chart-pdi-box']) State.charts['chart-pdi-box'].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts['chart-pdi-box'] = new Chart(ctxPdi, {
+        type: 'bar',
+        data: {
+            labels: bKeys.map(b=>'Box '+b),
+            datasets: [
+                { label:'Com PDI', data: bKeys.map(b=>boxPdi[b].com), backgroundColor:'#059669', borderRadius:4 },
+                { label:'Sem PDI', data: bKeys.map(b=>boxPdi[b].sem), backgroundColor:'#FECACA', borderRadius:4 }
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins: { legend:{position:'top',labels:{font:{size:11},boxWidth:12}}, datalabels:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.95)',titleColor:'#F8FAFC',bodyColor:'#CBD5E1',padding:10,cornerRadius:6} },
+            scales: { x:{stacked:true,grid:{display:false}}, y:{stacked:true,beginAtZero:true,grid:{color:'#F1F5F9'}} }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // PDI por UNI ORG
+    const uniMap = {};
+    d.forEach(r => { const u=r.uniOrg||'N/A'; if (!uniMap[u]) uniMap[u]={total:0,ok:0}; uniMap[u].total++; if (isPdi(r.pdi)) uniMap[u].ok++; });
+    const listEl = document.getElementById('pdi-uni-list');
+    listEl.innerHTML = '';
+    Object.entries(uniMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,v]) => {
+        const pct = v.total ? Math.round(v.ok/v.total*100) : 0;
+        const color = pct>=70?'#059669':pct>=40?'#F59E0B':'#DC2626';
+        listEl.innerHTML += `
+            <div>
+                <div class="flex justify-between items-baseline mb-1.5">
+                    <span class="text-xs font-medium text-slate-700 truncate">${name}</span>
+                    <div class="text-xs ml-2"><span class="font-bold" style="color:${color}">${pct}%</span><span class="text-slate-400 ml-1">(${v.ok}/${v.total})</span></div>
+                </div>
+                <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            </div>`;
+    });
+
+    // Tabela sem PDI
+    const tb = document.querySelector('#sem-pdi-table tbody');
+    tb.innerHTML = '';
+    d.filter(r => !isPdi(r.pdi)).sort((a,b)=>parseFloat(b.box)-parseFloat(a.box)).forEach(r => {
+        tb.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${r.nome}</td>
+            <td class="text-xs">${r.uniOrg||'-'}</td>
+            <td class="text-xs">${r.hrbp||'-'}</td>
+            <td class="text-xs">${r.area||'-'}</td>
+            <td class="text-center"><span class="badge badge-yellow">Box ${r.box||'-'}</span></td>
+            <td class="text-center text-xs text-slate-500">${r.grade||'-'}</td>
+            <td class="text-right text-xs">${crFmt(r.comparatio)}</td>
+        </tr>`;
+    });
+    if (!tb.innerHTML) tb.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-3">Todos com PDI</td></tr>';
+}
+
+// ============================================================
+// RENDER: ANALÍTICO
+// ============================================================
+function renderTable() {
+    const d = State.filtered;
+    document.getElementById('table-count').innerText = `${d.length} colaboradores`;
+    const tb = document.querySelector('#main-table tbody');
+    tb.innerHTML = '';
+    d.sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).forEach(r => {
+        const boxCrit = ['6','7','8','9'].includes(String(r.box));
+        const boxBadge = boxCrit ? `<span class="badge badge-yellow"><i class="ph-fill ph-star"></i> ${r.box}</span>` : `<span class="badge badge-gray">${r.box||'-'}</span>`;
+        const crIsLow = r.comparatio !== null && r.comparatio < 0.8;
+        const crColor = r.comparatio ? (crIsLow ? 'text-red-600 font-bold' : r.comparatio > 1.2 ? 'text-purple-600' : 'text-emerald-600') : '';
+        const crFlag  = crIsLow ? ' <i class="ph-fill ph-warning text-red-500" title="Abaixo de 80%"></i>' : '';
+        const pdiBadge = isPdi(r.pdi) ? '<span class="status-dot status-yes"></span> Sim' : '<span class="status-dot status-no"></span> Não';
+        const tempoAnos = tempoEmpresa(r.admissao);
+        const tempoBadge = tempoAnos !== null
+            ? `<span class="text-xs ${tempoAnos >= 5 ? 'font-semibold text-slate-700' : 'text-slate-500'}">${tempoFmt(tempoAnos)}</span>`
+            : '<span class="text-slate-300">-</span>';
+        tb.innerHTML += `<tr${crIsLow ? ' style="background:#FFF5F5;"' : ''}>
+            <td class="font-medium text-slate-900">${r.nome}</td>
+            <td class="text-xs">${r.uniOrg||'-'}</td>
+            <td class="text-xs">${r.hrbp||'-'}</td>
+            <td class="text-xs">${r.area||'-'}</td>
+            <td class="text-center">${boxBadge}</td>
+            <td class="text-center text-xs text-slate-500">${r.grade||'-'}</td>
+            <td class="text-xs">${r.pais||'-'}</td>
+            <td class="text-center">${tempoBadge}</td>
+            <td class="text-right text-xs ${crColor}">${crFmt(r.comparatio)}${crFlag}</td>
+            <td class="text-center text-xs">${r.overall !== null ? r.overall : '-'}</td>
+            <td class="text-center text-xs">${pdiBadge}</td>
+            <td class="text-xs">${r.gerente||'-'}</td>
+        </tr>`;
+    });
+    if (!tb.innerHTML) tb.innerHTML = '<tr><td colspan="11" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+}
+
+// ============================================================
+// CHARTS HELPERS
+// ============================================================
+function renderBarChart(id, labels, data, color) {
+    const ctx = document.getElementById(id); if (!ctx) return;
+    if (State.charts[id]) State.charts[id].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 4 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend:{display:false}, datalabels:{color:'#0F172A',font:{weight:'bold',size:10},anchor:'end',align:'end'}, tooltip:{backgroundColor:'rgba(15,23,42,0.95)',titleColor:'#F8FAFC',bodyColor:'#CBD5E1',padding:10,cornerRadius:6} },
+            scales: { x:{grid:{display:false}}, y:{grid:{color:'#F1F5F9'},border:{display:false},beginAtZero:true} }
+        },
+        plugins: [ChartDataLabels]
+    });
+}
+
+function renderDoughnut(id, labels, data, colors) {
+    const ctx = document.getElementById(id); if (!ctx) return;
+    if (State.charts[id]) State.charts[id].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts[id] = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: 'white' }] },
+        options: {
+            responsive:true, maintainAspectRatio:false, cutout:'60%',
+            plugins: {
+                legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},
+                datalabels:{ color:'white', font:{weight:'bold',size:10}, formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0)||1; const p=Math.round(v/t*100); return p>=6?p+'%':''; } },
+                tooltip:{backgroundColor:'rgba(15,23,42,0.95)',titleColor:'#F8FAFC',bodyColor:'#CBD5E1',padding:10,cornerRadius:6}
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function searchTable(id, term) {
+    document.querySelectorAll(`#${id} tbody tr`).forEach(r => { r.style.display = r.innerText.toLowerCase().includes(term.toLowerCase()) ? '' : 'none'; });
+}
+function exportTableToExcel(tableID, filename) {
+    const wb = XLSX.utils.table_to_book(document.getElementById(tableID), { sheet:'Sheet1' });
+    XLSX.writeFile(wb, (filename||'Export')+'.xlsx');
+}
+</script>
+</body>
+</html>
