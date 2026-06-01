@@ -103,17 +103,19 @@
         
         <!-- FILTERS AREA -->
         <div class="filters-area">
-            <!-- SELETOR DE PERÍODO -->
-            <div class="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
-                <div class="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <!-- SELETOR DE PERÍODO (dropdown multi-select padrão) -->
+            <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100 flex-wrap">
+                <div class="flex items-center gap-2 text-xs font-semibold text-slate-700 mr-1">
                     <i class="ph ph-calendar" style="color:#F97316; font-size:1rem;"></i>
-                    Período de análise:
+                    Período:
                 </div>
-                <select id="periodo-select" onchange="handlePeriodoChange(this.value)"
-                    class="text-xs font-semibold border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 cursor-pointer transition"
-                    style="outline:none; min-width:160px;">
-                    <option value="ALL">Todos os períodos</option>
-                </select>
+                <div class="relative" id="mes-filter-wrap">
+                    <button class="filter-pill" id="btn-mes-periodo" onclick="toggleDropdownMes(event)">
+                        <span>Período: <span id="lbl-mes-periodo" class="font-normal text-xs ml-1">Todos</span></span>
+                        <i class="ph ph-caret-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="dd-mes-periodo" onclick="event.stopPropagation()"></div>
+                </div>
                 <span class="text-[10px] text-slate-400 italic" id="periodo-info"></span>
             </div>
             <div class="filters-label">
@@ -351,6 +353,7 @@
             
             <!-- 2. WORKFORCE -->
             <div id="view-work" class="view-section hidden space-y-4">
+                <div id="wf-diag-msg" style="display:none;"></div>
                 <div class="page-header">
                     <h2>Workforce Planning</h2>
                     <div class="flex items-center gap-3 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg max-w-3xl">
@@ -949,7 +952,25 @@
                 if(data['MOVIMENTOS'] && data['MOVIMENTOS'].length > 0) State.raw.mov = data['MOVIMENTOS'];
                 if(data['LIDERANCA'] && data['LIDERANCA'].length > 0) State.raw.lid = data['LIDERANCA'];
                 if(data['LIDERANÇA'] && data['LIDERANÇA'].length > 0) State.raw.lid = data['LIDERANÇA'];
-                if(data['WORKFORCE'] && data['WORKFORCE'].length > 0) State.raw.workforce = data['WORKFORCE'];
+                // Detecta aba de workforce por nome (normalizado para uppercase no reader)
+                // Como o reader faz n.trim().toUpperCase(), todas as chaves já são uppercase
+                const wfKey = ['WORKFORCE','WORK FORCE','WORKFORCE ','HC_PLAN','HC PLAN',
+                    'PLANEJAMENTO','PLANEJAMENTO DE PESSOAS','PLAN','HEADCOUNT PLAN',
+                    'HEADCOUNT','HC','ORCAMENTO','ORÇAMENTO','BUDGET']
+                    .find(k => data[k] && data[k].length > 0);
+                if(wfKey) {
+                    State.raw.workforce = data[wfKey];
+                    State.raw._wfKeyFound = wfKey;
+                }
+                // Fallback: qualquer aba restante que não seja das conhecidas
+                if(!wfKey) {
+                    const knownKeys = ['ATIVOS','DESLIGAMENTOS','MOVIMENTOS','LIDERANCA','LIDERANÇA','VAGAS'];
+                    const unknownKey = Object.keys(data).find(k => !knownKeys.includes(k) && data[k] && data[k].length > 0);
+                    if(unknownKey) {
+                        State.raw.workforce = data[unknownKey];
+                        State.raw._wfKeyFound = unknownKey + ' (auto)';
+                    }
+                }
                 if(data['VAGAS'] && data['VAGAS'].length > 0) State.raw.vagas = data['VAGAS'];
             };
             mapData(d1);
@@ -992,14 +1013,10 @@
     function initFilters() {
         if(!State.raw.ativos || State.raw.ativos.length === 0) return;
         const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].sort().reverse();
+        // Inicia com o mês mais recente por padrão
         State.filters.mes = months.length > 0 ? [months[0]] : [];
-        
-        // Popula seletor de período
-        const periodoSel = document.getElementById('periodo-select');
-        if (periodoSel) {
-            periodoSel.innerHTML = '<option value="ALL">Todos os períodos</option>' + 
-                months.map(m => `<option value="${m}" ${m === months[0] ? 'selected' : ''}>${m}</option>`).join('');
-        }
+        // Atualiza label do dropdown de mês
+        setTimeout(() => { updateMesPillLabel(); }, 50);
         
         const keys = [['HRBP','hrbp'], ['ÁREA','area'], ['PAÍS','pais'], ['ORG UNIT','org'], ['SITE','site'], ['GRADE','grade']];
         const bar = document.getElementById('filter-bar');
@@ -1057,16 +1074,44 @@
         return opts.sort();
     }
     
-    function handlePeriodoChange(val) {
-        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].sort().reverse();
-        if (val === 'ALL') {
-            State.filters.mes = [];
-            document.getElementById('periodo-info').innerText = `${months.length} meses carregados`;
-        } else {
-            State.filters.mes = [val];
-            document.getElementById('periodo-info').innerText = '';
-        }
+    function toggleDropdownMes(e) {
+        e.stopPropagation();
+        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].filter(x=>x).sort().reverse();
+        document.querySelectorAll('.dropdown-menu').forEach(d => { if (d.id !== 'dd-mes-periodo') d.classList.remove('show'); });
+        const dd = document.getElementById('dd-mes-periodo');
+        dd.innerHTML = `<div class="p-2 border-b border-slate-100 mb-1 text-xs font-semibold text-orange-600 cursor-pointer hover:bg-slate-50 rounded" 
+            onclick="toggleAllMes(${months.length})">(Selecionar Todos)</div>`;
+        months.forEach(m => {
+            const checked = State.filters.mes.includes(m);
+            dd.innerHTML += `<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs text-slate-700 rounded">
+                <input type="checkbox" class="accent-orange-500" ${checked?'checked':''} onchange="handleSelMes('${m}',this.checked)"> ${m}
+            </label>`;
+        });
+        dd.classList.toggle('show');
+    }
+    
+    function toggleAllMes(total) {
+        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].filter(x=>x).sort().reverse();
+        State.filters.mes = (State.filters.mes.length === total && total > 0) ? [] : [...months];
+        updateMesPillLabel();
         debouncedApply();
+    }
+    
+    function handleSelMes(val, checked) {
+        if (checked) State.filters.mes.push(val);
+        else State.filters.mes = State.filters.mes.filter(v => v !== val);
+        updateMesPillLabel();
+        debouncedApply();
+    }
+    
+    function updateMesPillLabel() {
+        const len = State.filters.mes.length;
+        const el = document.getElementById('lbl-mes-periodo');
+        const btn = document.getElementById('btn-mes-periodo');
+        if (el && btn) {
+            if (len === 0) { el.innerText = 'Todos'; btn.classList.remove('active'); }
+            else { el.innerText = len === 1 ? State.filters.mes[0] : `(${len})`; btn.classList.add('active'); }
+        }
     }
     
     function applyFilters() {
@@ -1388,6 +1433,27 @@
     
     window.renderWorkforce = function() {
         const d = State.filtered.workforce;
+        
+        // Feedback de diagnóstico quando workforce está vazio
+        const diagEl = document.getElementById('wf-diag-msg');
+        if (diagEl) {
+            if (!d || d.length === 0) {
+                const allSheets = State.raw._wfKeyFound || 'nenhuma aba reconhecida';
+                diagEl.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:0.85rem 1rem;display:flex;align-items:flex-start;gap:10px;margin-bottom:1rem;">
+                    <i class="ph ph-warning" style="color:#D97706;font-size:1.1rem;flex-shrink:0;margin-top:1px;"></i>
+                    <div style="font-size:0.78rem;color:#78350F;">
+                        <strong>Aba de Workforce não localizada.</strong><br>
+                        O leitor de arquivos normaliza os nomes das abas para maiúsculo. 
+                        Nomeie a aba na planilha como <code style="background:#FDE68A;padding:1px 5px;border-radius:3px;">WORKFORCE</code> 
+                        e recarregue o arquivo. Abas encontradas: ${Object.keys(d || {}).join(', ') || 'verificar console'}.
+                    </div>
+                </div>`;
+                diagEl.style.display = 'block';
+                return;
+            }
+            diagEl.style.display = 'none';
+        }
+        
         const sum = (k) => d.reduce((a,b)=>a+(parseFloat(b[k])||0),0);
         setVal('wf-orc', sum('HC_ORC')); setVal('wf-norc', sum('HC_NORC')); setVal('wf-ytd-orc', sum('YTD_ORC')); setVal('wf-total', sum('YTD_ORC')+sum('YTD_NORC'));
         const tb = document.querySelector('#wf-table tbody'); tb.innerHTML = '';
