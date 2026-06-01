@@ -244,7 +244,7 @@
                         <div class="nbox-axis-y">Performance (Y)</div>
 
                         <!-- Y=3 (alto) -->
-                        <div class="nbox-cell" id="cell-7">
+                        <div class="nbox-cell is-critical" id="cell-7">
                             <div class="nbox-num">07</div>
                             <div class="nbox-count" id="cnt-7">0</div>
                             <div class="nbox-pct" id="pct-7">0%</div>
@@ -425,8 +425,7 @@
                         </table>
                     </div>
                 </div>
-            </div>
-
+            
 
                 <div class="section-block" style="border-top: 3px solid #DC2626;">
                     <div class="section-title"><span class="section-number" style="color:#DC2626;">!</span> QUADRANTE DE RISCO DE RETENÇÃO</div>
@@ -438,24 +437,24 @@
                         <div class="space-y-3">
                             <div class="p-3 bg-red-50 border border-red-200 rounded-xl">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="text-xs font-bold text-red-800">🔴 Alta Performance + Baixo CR</span>
+                                    <span class="text-xs font-bold text-red-800">🔴 Alta Performance + Baixo Comparatio</span>
                                     <span class="text-xl font-extrabold text-red-600" id="risk-q-hl">-</span>
                                 </div>
-                                <p class="text-[11px] text-red-700">Overall ≥ 4 + Comparatio &lt; 80%. Prioridade máxima de ação salarial.</p>
+                                <p class="text-[11px] text-red-700">Overall ≥ 4 + Comparatio < 80%. Prioridade máxima de ação salarial.</p>
                             </div>
                             <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="text-xs font-bold text-amber-800">🟡 Alta Performance + CR Ideal</span>
+                                    <span class="text-xs font-bold text-amber-800">🟡 Alta Performance + Comparatio Ideal</span>
                                     <span class="text-xl font-extrabold text-amber-600" id="risk-q-hm">-</span>
                                 </div>
                                 <p class="text-[11px] text-amber-700">Overall ≥ 4 + Comparatio 80–120%. Situação saudável, monitorar.</p>
                             </div>
                             <div class="p-3 bg-purple-50 border border-purple-200 rounded-xl">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="text-xs font-bold text-purple-800">🟣 Alta Performance + CR Alto</span>
+                                    <span class="text-xs font-bold text-purple-800">🟣 Alta Performance + Comparatio Alto</span>
                                     <span class="text-xl font-extrabold text-purple-600" id="risk-q-hh">-</span>
                                 </div>
-                                <p class="text-[11px] text-purple-700">Overall ≥ 4 + Comparatio &gt; 120%. Avaliar estrutura de carreira.</p>
+                                <p class="text-[11px] text-purple-700">Overall ≥ 4 + Comparatio > 120%. Avaliar estrutura de carreira.</p>
                             </div>
                             <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
                                 <div class="flex justify-between items-center mb-1">
@@ -467,6 +466,8 @@
                         </div>
                     </div>
                 </div>
+
+            </div>
 
             <!-- ===== PDI ===== -->
             <div id="view-pdi" class="view-section hidden space-y-4">
@@ -1017,7 +1018,7 @@ function renderComp() {
                             title: (items) => pts[items[0].dataIndex].nome,
                             label: (item) => {
                                 const p = pts[item.dataIndex];
-                                return [`Box ${p.box} · CR: ${item.raw.x.toFixed(1)}% · Overall: ${item.raw.y}`];
+                                return [`Box ${p.box} · Comparatio: ${item.raw.x.toFixed(1)}% · Overall: ${item.raw.y}`];
                             }
                         }
                     },
