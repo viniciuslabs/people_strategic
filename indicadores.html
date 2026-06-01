@@ -103,23 +103,8 @@
         
         <!-- FILTERS AREA -->
         <div class="filters-area">
-            <!-- SELETOR DE PERÍODO (dropdown multi-select padrão) -->
-            <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100 flex-wrap">
-                <div class="flex items-center gap-2 text-xs font-semibold text-slate-700 mr-1">
-                    <i class="ph ph-calendar" style="color:#F97316; font-size:1rem;"></i>
-                    Período:
-                </div>
-                <div class="relative" id="mes-filter-wrap">
-                    <button class="filter-pill" id="btn-mes-periodo" onclick="toggleDropdownMes(event)">
-                        <span>Período: <span id="lbl-mes-periodo" class="font-normal text-xs ml-1">Todos</span></span>
-                        <i class="ph ph-caret-down"></i>
-                    </button>
-                    <div class="dropdown-menu" id="dd-mes-periodo" onclick="event.stopPropagation()"></div>
-                </div>
-                <span class="text-[10px] text-slate-400 italic" id="periodo-info"></span>
-            </div>
             <div class="filters-label">
-                <i class="ph ph-faders"></i> Filtros de Dimensão
+                <i class="ph ph-faders"></i> Filtros Globais
             </div>
             <div id="filter-bar" class="flex flex-wrap gap-2 items-center relative"></div>
         </div>
@@ -167,9 +152,6 @@
                     <h2>People Analytics <span style="color:#94A3B8; font-weight:400;">|</span> <span style="font-size:1rem; font-weight:500; color:#64748B;">Dashboard Executivo</span></h2>
                     <p>Dados que antecipam decisões. Pessoas que geram resultados.</p>
                 </div>
-                
-                <!-- ALERTAS AUTOMÁTICOS -->
-                <div id="exec-alerts-container" class="space-y-2" style="display:none;"></div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div class="kpi-exec">
@@ -353,7 +335,6 @@
             
             <!-- 2. WORKFORCE -->
             <div id="view-work" class="view-section hidden space-y-4">
-                <div id="wf-diag-msg" style="display:none;"></div>
                 <div class="page-header">
                     <h2>Workforce Planning</h2>
                     <div class="flex items-center gap-3 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg max-w-3xl">
@@ -952,25 +933,7 @@
                 if(data['MOVIMENTOS'] && data['MOVIMENTOS'].length > 0) State.raw.mov = data['MOVIMENTOS'];
                 if(data['LIDERANCA'] && data['LIDERANCA'].length > 0) State.raw.lid = data['LIDERANCA'];
                 if(data['LIDERANÇA'] && data['LIDERANÇA'].length > 0) State.raw.lid = data['LIDERANÇA'];
-                // Detecta aba de workforce por nome (normalizado para uppercase no reader)
-                // Como o reader faz n.trim().toUpperCase(), todas as chaves já são uppercase
-                const wfKey = ['WORKFORCE','WORK FORCE','WORKFORCE ','HC_PLAN','HC PLAN',
-                    'PLANEJAMENTO','PLANEJAMENTO DE PESSOAS','PLAN','HEADCOUNT PLAN',
-                    'HEADCOUNT','HC','ORCAMENTO','ORÇAMENTO','BUDGET']
-                    .find(k => data[k] && data[k].length > 0);
-                if(wfKey) {
-                    State.raw.workforce = data[wfKey];
-                    State.raw._wfKeyFound = wfKey;
-                }
-                // Fallback: qualquer aba restante que não seja das conhecidas
-                if(!wfKey) {
-                    const knownKeys = ['ATIVOS','DESLIGAMENTOS','MOVIMENTOS','LIDERANCA','LIDERANÇA','VAGAS'];
-                    const unknownKey = Object.keys(data).find(k => !knownKeys.includes(k) && data[k] && data[k].length > 0);
-                    if(unknownKey) {
-                        State.raw.workforce = data[unknownKey];
-                        State.raw._wfKeyFound = unknownKey + ' (auto)';
-                    }
-                }
+                if(data['WORKFORCE'] && data['WORKFORCE'].length > 0) State.raw.workforce = data['WORKFORCE'];
                 if(data['VAGAS'] && data['VAGAS'].length > 0) State.raw.vagas = data['VAGAS'];
             };
             mapData(d1);
@@ -1013,12 +976,9 @@
     function initFilters() {
         if(!State.raw.ativos || State.raw.ativos.length === 0) return;
         const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].sort().reverse();
-        // Inicia com o mês mais recente por padrão
         State.filters.mes = months.length > 0 ? [months[0]] : [];
-        // Atualiza label do dropdown de mês
-        setTimeout(() => { updateMesPillLabel(); }, 50);
         
-        const keys = [['HRBP','hrbp'], ['ÁREA','area'], ['PAÍS','pais'], ['ORG UNIT','org'], ['SITE','site'], ['GRADE','grade']];
+        const keys = [['HRBP','hrbp'], ['ÁREA','area'], ['PAÍS','pais'], ['ORG UNIT','org'], ['SITE','site'], ['GRADE','grade'], ['MÊS REF','mes']];
         const bar = document.getElementById('filter-bar');
         while (bar.children.length > 0) bar.removeChild(bar.lastChild);
         
@@ -1072,46 +1032,6 @@
             return opts.sort((a,b) => parseFloat(a) - parseFloat(b));
         }
         return opts.sort();
-    }
-    
-    function toggleDropdownMes(e) {
-        e.stopPropagation();
-        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].filter(x=>x).sort().reverse();
-        document.querySelectorAll('.dropdown-menu').forEach(d => { if (d.id !== 'dd-mes-periodo') d.classList.remove('show'); });
-        const dd = document.getElementById('dd-mes-periodo');
-        dd.innerHTML = `<div class="p-2 border-b border-slate-100 mb-1 text-xs font-semibold text-orange-600 cursor-pointer hover:bg-slate-50 rounded" 
-            onclick="toggleAllMes(${months.length})">(Selecionar Todos)</div>`;
-        months.forEach(m => {
-            const checked = State.filters.mes.includes(m);
-            dd.innerHTML += `<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs text-slate-700 rounded">
-                <input type="checkbox" class="accent-orange-500" ${checked?'checked':''} onchange="handleSelMes('${m}',this.checked)"> ${m}
-            </label>`;
-        });
-        dd.classList.toggle('show');
-    }
-    
-    function toggleAllMes(total) {
-        const months = [...new Set(State.raw.ativos.map(r => fmtDate(r['MÊS'])))].filter(x=>x).sort().reverse();
-        State.filters.mes = (State.filters.mes.length === total && total > 0) ? [] : [...months];
-        updateMesPillLabel();
-        debouncedApply();
-    }
-    
-    function handleSelMes(val, checked) {
-        if (checked) State.filters.mes.push(val);
-        else State.filters.mes = State.filters.mes.filter(v => v !== val);
-        updateMesPillLabel();
-        debouncedApply();
-    }
-    
-    function updateMesPillLabel() {
-        const len = State.filters.mes.length;
-        const el = document.getElementById('lbl-mes-periodo');
-        const btn = document.getElementById('btn-mes-periodo');
-        if (el && btn) {
-            if (len === 0) { el.innerText = 'Todos'; btn.classList.remove('active'); }
-            else { el.innerText = len === 1 ? State.filters.mes[0] : `(${len})`; btn.classList.add('active'); }
-        }
     }
     
     function applyFilters() {
@@ -1196,85 +1116,6 @@
         });
     }
     
-    function renderAlerts() {
-        const container = document.getElementById('exec-alerts-container');
-        if (!container) return;
-        
-        const d = State.filtered.ativos || [];
-        const deslig = State.filtered.deslig || [];
-        const vagas = State.filtered.vagas || [];
-        const monthsCount = State.filters.mes.length || 1;
-        const avgHC = d.length / monthsCount || 1;
-        
-        const alerts = [];
-        
-        // Turnover
-        const turn = (deslig.length / avgHC) * 100;
-        if (turn > 10) {
-            alerts.push({ level: 'critical', icon: 'ph-warning-octagon', 
-                text: `Turnover em <strong>${turn.toFixed(1)}%</strong> — acima de 10%. Recomenda-se revisão das causas de desligamento no módulo de Offboarding.` });
-        } else if (turn > 5) {
-            alerts.push({ level: 'warning', icon: 'ph-warning', 
-                text: `Turnover em <strong>${turn.toFixed(1)}%</strong> — entre 5% e 10%. Monitorar evolução nos próximos meses.` });
-        }
-        
-        // HC em queda
-        const evoMap = {};
-        (State.filtered.hist || []).forEach(r => { const m = fmtDate(r['MÊS']); evoMap[m] = (evoMap[m]||0)+1; });
-        const evoKeys = Object.keys(evoMap).sort();
-        if (evoKeys.length >= 3) {
-            const first = evoMap[evoKeys[0]];
-            const last  = evoMap[evoKeys[evoKeys.length-1]];
-            const delta = ((last - first) / first) * 100;
-            if (delta < -5) {
-                alerts.push({ level: 'warning', icon: 'ph-trend-down',
-                    text: `Headcount com queda de <strong>${Math.abs(delta).toFixed(1)}%</strong> entre ${evoKeys[0]} e ${evoKeys[evoKeys.length-1]}.` });
-            }
-        }
-        
-        // Comparatio < 80%
-        const crVals = d.filter(r => !isNaN(parseFloat(r['COMPARATIO'])));
-        if (crVals.length > 0) {
-            const crLow = crVals.filter(r => parseFloat(r['COMPARATIO']) < 0.8).length;
-            const crPct = (crLow / crVals.length) * 100;
-            if (crPct > 25) {
-                alerts.push({ level: 'warning', icon: 'ph-currency-circle-dollar',
-                    text: `<strong>${crLow} colaboradores (${crPct.toFixed(0)}%)</strong> com Comparatio abaixo de 80%. Atenção ao risco de retenção salarial.` });
-            }
-        }
-        
-        // Vagas em aberto (total)
-        if (vagas.length > 0) {
-            const vagasAbertas = vagas.filter(v => {
-                const status = String(v['STATUS'] || v['Status'] || '').toUpperCase();
-                return status.includes('ABERTA') || status.includes('OPEN') || status === '';
-            });
-            if (vagasAbertas.length > 20) {
-                alerts.push({ level: 'info', icon: 'ph-briefcase',
-                    text: `<strong>${vagasAbertas.length} posições abertas</strong> no período. Verifique a aba de Posições Abertas para o detalhamento.` });
-            }
-        }
-        
-        if (alerts.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-        
-        container.style.display = 'block';
-        const colors = {
-            critical: { bg: '#FEF2F2', border: '#FCA5A5', icon: '#DC2626', text: '#7F1D1D' },
-            warning:  { bg: '#FFFBEB', border: '#FDE68A', icon: '#D97706', text: '#78350F' },
-            info:     { bg: '#EFF6FF', border: '#BFDBFE', icon: '#2563EB', text: '#1E3A5F' }
-        };
-        container.innerHTML = alerts.map(a => {
-            const c = colors[a.level];
-            return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:0.75rem 1rem;display:flex;align-items:flex-start;gap:10px;">
-                <i class="ph-fill ${a.icon}" style="color:${c.icon};font-size:1.1rem;margin-top:1px;flex-shrink:0;"></i>
-                <p style="font-size:0.78rem;color:${c.text};line-height:1.5;">${a.text}</p>
-            </div>`;
-        }).join('');
-    }
-    
     window.renderExec = function() {
         const d = State.filtered.ativos;
         const monthsCount = State.filters.mes.length || 1;
@@ -1308,7 +1149,6 @@
         d.forEach(r => { const c=parseFloat(r['COMPARATIO']); if(c<0.8) cMap['<80%']++; else if(c>1.2) cMap['>120%']++; else cMap['80-120%']++; });
         const totalC = Object.values(cMap).reduce((a,b)=>a+b,0)||1;
         renderChart('chart-compa-donut', 'bar', Object.keys(cMap), Object.values(cMap), [Colors.red, Colors.green, Colors.orange], {formatter: (val) => `${val} (${Math.round(val/totalC*100)}%)`});
-        renderAlerts();
     }
     
     window.renderAdmitidos = function() {
@@ -1433,27 +1273,6 @@
     
     window.renderWorkforce = function() {
         const d = State.filtered.workforce;
-        
-        // Feedback de diagnóstico quando workforce está vazio
-        const diagEl = document.getElementById('wf-diag-msg');
-        if (diagEl) {
-            if (!d || d.length === 0) {
-                const allSheets = State.raw._wfKeyFound || 'nenhuma aba reconhecida';
-                diagEl.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:0.85rem 1rem;display:flex;align-items:flex-start;gap:10px;margin-bottom:1rem;">
-                    <i class="ph ph-warning" style="color:#D97706;font-size:1.1rem;flex-shrink:0;margin-top:1px;"></i>
-                    <div style="font-size:0.78rem;color:#78350F;">
-                        <strong>Aba de Workforce não localizada.</strong><br>
-                        O leitor de arquivos normaliza os nomes das abas para maiúsculo. 
-                        Nomeie a aba na planilha como <code style="background:#FDE68A;padding:1px 5px;border-radius:3px;">WORKFORCE</code> 
-                        e recarregue o arquivo. Abas encontradas: ${Object.keys(d || {}).join(', ') || 'verificar console'}.
-                    </div>
-                </div>`;
-                diagEl.style.display = 'block';
-                return;
-            }
-            diagEl.style.display = 'none';
-        }
-        
         const sum = (k) => d.reduce((a,b)=>a+(parseFloat(b[k])||0),0);
         setVal('wf-orc', sum('HC_ORC')); setVal('wf-norc', sum('HC_NORC')); setVal('wf-ytd-orc', sum('YTD_ORC')); setVal('wf-total', sum('YTD_ORC')+sum('YTD_NORC'));
         const tb = document.querySelector('#wf-table tbody'); tb.innerHTML = '';
