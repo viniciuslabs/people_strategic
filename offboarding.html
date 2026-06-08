@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offboarding Deepdive</title>
+<!-- Importação de Bibliotecas Separadas do Código Local -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#EAECEC;color:#0B2838}
+
+/* SPLASH SCREEN CSS */
+.splash-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#FFFFFF; position:relative; overflow:hidden; }
+.splash-deco-circle { position:absolute; right:-10vw; top:-15vh; width:600px; height:600px; background:#FAFBFC; border-radius:50%; z-index:1; }
+.splash-deco-grid { position:absolute; right:2vw; top:2vh; width:300px; height:400px; background-image:radial-gradient(#C4CDCC 1.5px, transparent 1.5px); background-size:24px 24px; z-index:2; opacity:0.4; }
+.splash-dot { position:absolute; border-radius:50%; z-index:3; }
+.dot-copper { background:#B27A59; width:8px; height:8px; top:15%; right:18%; }
+.dot-dark { background:#0B2838; width:6px; height:6px; top:25%; right:12%; }
+.dot-blue { background:#105FA2; width:5px; height:5px; top:40%; right:10%; }
+
+.splash-content { background:transparent; border:none; padding:0; max-width:600px; width:90%; display:flex; flex-direction:column; align-items:center; z-index:10; }
+.splash-brand { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+.splash-brand-bar { width:4px; height:50px; background:#0B2838; border-radius:2px; }
+.splash-brand-text { text-align:center; }
+.splash-title { font-size:2.2rem; font-weight:800; color:#0B2838; letter-spacing:-0.02em; line-height:1.1; }
+.splash-subtitle { font-size:.75rem; color:#8A9FA0; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-top:0.3rem; }
+
+.splash-tagline { font-size:.9rem; color:#778689; text-align:center; margin-bottom:2.5rem; line-height:1.6; }
+.splash-tagline strong { color:#0B2838; }
+
+.splash-upload-card { display:flex; align-items:center; justify-content:center; gap:1.5rem; border:1px dashed #C4CDCC; border-radius:12px; padding:1.25rem 2rem; cursor:pointer; background:#FAFBFC; transition:all 0.2s; position:relative; margin-bottom:2rem; width:100%; max-width:550px; }
+.splash-upload-card:hover { border-color:#105FA2; background:#F4F6F5; }
+.splash-upload-card.loaded { border-style:solid; border-color:#AABF3E; background:#FAFCF0; }
+#file-off { display:none; }
+.splash-upload-icon-wrap { background:#B27A59; color:#fff; width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.6rem; flex-shrink:0; }
+.splash-upload-text { display:flex; align-items:center; gap:1.25rem; text-align:left; }
+.splash-upload-title { font-weight:700; color:#0B2838; font-size:.95rem; line-height:1.3; }
+.splash-upload-desc { font-size:.8rem; color:#8A9FA0; border-left:1px solid #EAECEC; padding-left:1.25rem; line-height:1.3; }
+.splash-upload-check { display:none; position:absolute; top:-10px; right:-10px; font-size:1.5rem; color:#AABF3E; background:#fff; border-radius:50%; }
+.splash-upload-card.loaded .splash-upload-check { display:block; }
+
+.splash-process-btn { background:#778689; color:#fff; border:none; padding:.75rem 2.5rem; border-radius:8px; font-size:.95rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; transition:background 0.2s, opacity 0.2s; }
+.splash-process-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.splash-process-btn:not(:disabled):hover { background:#5A6A6E; }
+
+.splash-privacy-note { margin-top:2rem; background:#FAFBFC; border:1px solid #EAECEC; border-radius:8px; padding:.75rem 1.5rem; font-size:.75rem; color:#8A9FA0; display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; max-width:550px; text-align:left; }
+.splash-privacy-note i { font-size:1.1rem; color:#778689; }
+.splash-privacy-note strong { color:#5A6A6E; }
+
+.splash-back-link { position:absolute; top:2rem; left:2rem; background:#FAFBFC; border:1px solid #EAECEC; padding:.4rem 1rem; border-radius:999px; color:#5A6A6E; text-decoration:none; font-size:.85rem; font-weight:600; display:flex; align-items:center; gap:.4rem; transition:all 0.2s; z-index:10; }
+.splash-back-link:hover { color:#0B2838; border-color:#C4CDCC; }
+
+/* APP */
+#app{display:none;min-height:100vh;flex-direction:column}
+
+/* HEADER */
+.app-header{background:#0B2838;color:#fff;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.brand{display:flex;align-items:center;gap:.75rem}
+.brand-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.brand-name{font-weight:700;font-size:.95rem}
+.brand-sub{font-size:.7rem;color:rgba(255,255,255,.55);font-weight:500}
+.hub-btn{display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:.4rem 1rem;border-radius:8px;font-size:.78rem;font-weight:600;text-decoration:none;cursor:pointer}
+
+/* FILTROS */
+.filter-bar{background:#fff;border-bottom:1px solid #C4CDCC;padding:.6rem 1.5rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.filter-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9FA0;margin-right:.25rem}
+.fp{padding:.3rem .85rem;border-radius:999px;font-size:.72rem;font-weight:600;border:1.5px solid #C4CDCC;background:#fff;color:#0B2838;cursor:pointer;white-space:nowrap}
+.fp.on{background:#0B2838;border-color:#0B2838;color:#fff}
+.fp-clear{color:#105FA2;border-color:#D0E4F5}
+
+/* DROPDOWN */
+.dd-wrap{position:relative}
+.dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid #C4CDCC;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:200;min-width:180px;max-height:220px;overflow-y:auto;padding:.4rem}
+.dropdown.open{display:block}
+.dd-all{font-size:.72rem;font-weight:700;color:#105FA2;padding:.35rem .6rem;border-radius:6px;cursor:pointer;margin-bottom:.25rem}
+.dd-all:hover{background:#EBF5FA}
+.dd-opt{display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border-radius:6px;cursor:pointer;font-size:.78rem;color:#0B2838}
+.dd-opt:hover{background:#F4F6F5}
+
+/* SCROLL */
+.page-scroll{flex:1;overflow-y:auto;padding:1.5rem}
+.inner{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:1.25rem}
+
+/* CARDS */
+.card{background:#fff;border:1px solid #C4CDCC;border-radius:14px;padding:1.25rem}
+.sec-h{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9FA0;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.sec-h::before{content:'';display:block;width:3px;height:14px;background:#105FA2;border-radius:2px}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+.kpi{background:#fff;border:1px solid #C4CDCC;border-radius:12px;padding:1rem 1.25rem}
+.kpi-l{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9FA0;margin-bottom:.3rem}
+.kpi-v{font-size:2rem;font-weight:800;line-height:1.1}
+.kpi-s{font-size:.72rem;color:#8A9FA0;margin-top:.25rem}
+
+/* CHART GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+.col2{grid-column:span 2}
+
+/* BARRAS */
+.bar-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+.bar-lbl{font-size:.75rem;color:#0B2838;width:190px;flex-shrink:0;line-height:1.3}
+.bar-bg{flex:1;height:10px;background:#EAECEC;border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px;transition:width .6s ease}
+.bar-val{font-size:.75rem;font-weight:700;min-width:32px;text-align:right}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:.2rem .65rem;border-radius:999px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.bg{background:#EEF4C5;color:#7A8C2A}
+.br{background:#F5E8E8;color:#6B2323}
+.ba{background:#F5EDE4;color:#8C5A3C}
+.bb{background:#D4E8F2;color:#105FA2}
+.bs{background:#EAECEC;color:#0B2838}
+
+/* TABELA */
+.tbl-wrap{overflow:auto;border-radius:10px;border:1px solid #C4CDCC;max-height:480px}
+table.tbl{width:100%;border-collapse:collapse;font-size:.75rem}
+table.tbl thead{position:sticky;top:0;z-index:2}
+table.tbl th{padding:.6rem .9rem;text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A9FA0;border-bottom:2px solid #C4CDCC;background:#F4F6F5;white-space:nowrap}
+table.tbl td{padding:.55rem .9rem;border-bottom:1px solid #EAECEC;color:#0B2838;vertical-align:middle}
+table.tbl tr:hover td{background:#FAFAFA}
+
+/* PESSOA CARD */
+.pessoa-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid #EAECEC}
+.pessoa-nome{font-size:1.1rem;font-weight:800;color:#0B2838}
+.pessoa-sub{font-size:.78rem;color:#778689;margin-top:.2rem}
+.qa-block{background:#F4F6F5;border-left:3px solid #C4CDCC;border-radius:0 8px 8px 0;padding:.7rem 1rem;margin-bottom:.5rem}
+.qa-q{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8A9FA0;margin-bottom:.3rem}
+.qa-a{font-size:.82rem;color:#0B2838;line-height:1.6}
+.info2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.info-box{background:#F4F6F5;border-radius:8px;padding:.65rem 1rem;border:1px solid #EAECEC}
+.info-box-l{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A9FA0;margin-bottom:.2rem}
+.info-box-v{font-size:.88rem;font-weight:600;color:#0B2838}
+
+/* SCORE MES TABLE */
+.score-tbl-wrap{overflow-x:auto}
+table.score-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+table.score-tbl th{padding:.5rem .9rem;text-align:center;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A9FA0;border-bottom:2px solid #C4CDCC;background:#F4F6F5}
+table.score-tbl th:first-child{text-align:left}
+table.score-tbl td{padding:.5rem .9rem;border-bottom:1px solid #EAECEC;text-align:center}
+table.score-tbl td:first-child{text-align:left;font-weight:600;color:#0B2838}
+
+/* SELECT */
+select.sel{border:1.5px solid #C4CDCC;border-radius:8px;padding:.45rem .85rem;font-size:.85rem;font-family:'Inter',sans-serif;background:#fff;color:#0B2838;outline:none;cursor:pointer;min-width:300px}
+select.sel:focus{border-color:#105FA2}
+
+/* BUSCA */
+.search{border:1.5px solid #C4CDCC;border-radius:8px;padding:.4rem .85rem;font-size:.82rem;font-family:'Inter',sans-serif;outline:none}
+.search:focus{border-color:#105FA2}
+.btn-dl{display:inline-flex;align-items:center;gap:.4rem;background:#0B2838;color:#fff;border:none;padding:.45rem 1rem;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer}
+.btn-dl:hover{background:#105FA2}
+
+footer{text-align:center;font-size:.72rem;color:#8A9FA0;padding:.7rem;border-top:1px solid #C4CDCC;background:#fff;flex-shrink:0;margin-top:auto;}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash" class="splash-screen">
+  <div class="splash-deco-circle"></div>
+  <div class="splash-deco-grid"></div>
+  <div class="splash-dot dot-copper"></div>
+  <div class="splash-dot dot-dark"></div>
+  <div class="splash-dot dot-blue"></div>
+
+  <a href="hub.html" class="splash-back-link"><i class="ph ph-house"></i> Hub</a>
+  
+  <div class="splash-content">
+    <div class="splash-brand">
+      <div class="splash-brand-bar"></div>
+      <div class="splash-brand-text">
+        <h1 class="splash-title">Offboarding Deepdive</h1>
+        <p class="splash-subtitle">Entrevistas de Saída</p>
+      </div>
+    </div>
+    
+    <p class="splash-tagline"><strong>Score de satisfação, percepções e padrões de saída.</strong><br>Carregue a base para gerar os indicadores em tempo real.</p>
+    
+    <label class="splash-upload-card" id="card-off">
+      <input type="file" id="file-off" accept=".xlsx" onchange="markLoadedOff(this)">
+      <i class="ph-fill ph-check-circle splash-upload-check"></i>
+      <div class="splash-upload-icon-wrap"><i class="ph-fill ph-door-open"></i></div>
+      <div class="splash-upload-text">
+        <div class="splash-upload-title">Carregue a Base<br>de Offboarding</div>
+        <div class="splash-upload-desc">Base de entrevistas de<br>desligamento (.xlsx)</div>
+      </div>
+    </label>
+    
+    <button class="splash-process-btn" id="btn-off-proc" onclick="processOffboarding()" disabled>
+      <span id="btn-off-txt">Acessar Dashboard</span>
+      <i class="ph ph-arrow-right"></i>
+    </button>
+    <div id="err-msg" style="color:#7D2D2D;font-size:.8rem;margin-top:.5rem;min-height:1.2rem"></div>
+    
+    <div class="splash-privacy-note">
+      <i class="ph-fill ph-lock-key"></i>
+      <span><strong>Privacidade garantida.</strong> Dados processados localmente.<br>Nada é armazenado ou enviado.</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">📋</div>
+      <div>
+        <div class="brand-name">Offboarding Deepdive</div>
+        <div class="brand-sub">Entrevistas de Saída</div>
+      </div>
+    </div>
+    <a href="hub.html" class="hub-btn">🏠 Hub</a>
+  </header>
+
+  <div class="filter-bar">
+    <span class="filter-label">Filtros</span>
+    <div id="filter-bar-inner" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center"></div>
+  </div>
+
+  <div class="page-scroll">
+    <div class="inner">
+
+      <!-- ▸ KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-l">Total Desligados</div>
+          <div class="kpi-v" id="kv-tot" style="color:#7D2D2D">—</div>
+          <div class="kpi-s">No período</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-l">Taxa de Adesão à Entrevista</div>
+          <div class="kpi-v" id="kv-ades" style="color:#5A6E00">—</div>
+          <div class="kpi-s" id="kv-ades-sub">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-l">Tempo Médio de Casa</div>
+          <div class="kpi-v" id="kv-tempo" style="color:#778689">—</div>
+          <div class="kpi-s">Anos (desligados)</div>
+        </div>
+      </div>
+
+      <!-- ▸ GRÁFICOS VOLUME -->
+      <div class="grid3">
+        <div class="card">
+          <div class="sec-h">Desligamentos por Mês</div>
+          <div style="height:220px"><canvas id="ch-mes"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="sec-h">Motivos de Saída</div>
+          <div style="height:220px"><canvas id="ch-mot"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="sec-h">Desligamentos por Área</div>
+          <div id="area-bars"></div>
+        </div>
+      </div>
+
+      <!-- ▸ SCORE SATISFAÇÃO -->
+      <div class="grid2">
+        <div class="card">
+          <div class="sec-h">Score Experiência na Empresa (1–5)</div>
+          <div id="bars-exp"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.9rem;padding-top:.75rem;border-top:1px solid #EAECEC">
+            <span style="font-size:.75rem;color:#778689">Média geral</span>
+            <span id="avg-exp" style="font-size:1.25rem;font-weight:800">—</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-h">Score Liderança Direta (1–5)</div>
+          <div id="bars-lid"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.9rem;padding-top:.75rem;border-top:1px solid #EAECEC">
+            <span style="font-size:.75rem;color:#778689">Média geral</span>
+            <span id="avg-lid" style="font-size:1.25rem;font-weight:800">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ▸ SCORE MÊS A MÊS + RECOMENDAÇÃO -->
+      <div class="grid2">
+        <div class="card col2" style="grid-column:1/2">
+          <div class="sec-h">Score Médio · Mês a Mês</div>
+          <div class="score-tbl-wrap">
+            <table class="score-tbl">
+              <thead><tr><th>Mês</th><th>Entrevistas</th><th>Experiência</th><th>Liderança</th><th>Geral</th></tr></thead>
+              <tbody id="tbl-mes-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-h">Recomendaria a Empresa?</div>
+          <div style="height:200px"><canvas id="ch-recom"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ▸ PERCEPÇÕES QUALITATIVAS -->
+      <div class="card">
+        <div class="sec-h">Percepções Qualitativas · Respostas Individuais</div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+          <span style="font-size:.82rem;font-weight:600;color:#0B2838">Selecione o entrevistado:</span>
+          <select class="sel" id="sel-pessoa" onchange="mostrarPessoa()">
+            <option value="">— Escolha uma pessoa —</option>
+          </select>
+          <span id="sel-count" style="font-size:.72rem;color:#8A9FA0"></span>
+        </div>
+        <div id="pessoa-card"></div>
+      </div>
+
+      <!-- ▸ ANALÍTICO -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem">
+          <div class="sec-h" style="margin-bottom:0">Analítico de Entrevistas</div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input class="search" id="busca" type="text" placeholder="🔍 Buscar..." oninput="buscar(this.value)">
+            <button class="btn-dl" onclick="exportar()">⬇ Baixar</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="tbl-ana">
+            <thead><tr>
+              <th>Nome</th><th>Área</th><th>Líder</th><th>HRBP</th>
+              <th>Desligamento</th><th>Tipo</th><th>Motivo</th>
+              <th>Performance</th><th>Entrevista</th><th>Recomenda</th>
+            </tr></thead>
+            <tbody id="tbl-ana-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>Desenvolvido por <strong>Vinicius Carlos</strong> · HRBP Negócios<a href="hub.html" style="color:#105FA2;margin-left:8px;">Voltar ao Hub</a></footer>
+</div>
+
+<!-- Lógica Local Unificada -->
+<script>
+var _offFileInput = null;
+function markLoadedOff(input) {
+  _offFileInput = input;
+  var card = document.getElementById('card-off');
+  if (card) card.classList.add('loaded');
+  var btn = document.getElementById('btn-off-proc');
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+}
+
+function processOffboarding() {
+  if (_offFileInput) carregarArquivo(_offFileInput);
+}
+
+// Índices das colunas da planilha Offboarding_Teste.xlsx
+var C = {
+  org:0, hrbp:1, pais:2, area:3, nome:4, lider:5, site:6, nivel:7,
+  grade:8, dataAdm:9, dataD:10, tipo:11, perf:12, motivo:13,
+  comentRH:14, entrev:15, motivoD:16,
+  e1:17,e2:18,e3:19,e4:20,e5:21,e6:22,
+  l1:23,l2:24,l3:25,l4:26,l5:27,l6:28,l7:29,
+  novaOp:30, avalLid:31, cultura:32, expectativa:33,
+  expGDM:34, sugestoes:35, recom:36, porq:37
+};
+
+var EXP_LABELS = ['Remuneração & Benefícios','Equilíbrio vida-trabalho','Reconhecimento pelo trabalho','Clima na equipe','Aprendizagem & Desenvolvimento','Onboarding'];
+var LID_LABELS = ['Clareza na comunicação','Abertura para diálogo','Capacidade de motivar','Feedbacks construtivos','Apoio ao desenvolvimento','Gestão de conflitos','Confiança e respeito'];
+var QUAL_QS = [
+  {k:'motivoD',    q:'O que motivou a decisão de sair?'},
+  {k:'novaOp',     q:'Nova oportunidade mais atrativa?'},
+  {k:'avalLid',    q:'Como avalia a liderança direta?'},
+  {k:'cultura',    q:'Cultura e clima do time'},
+  {k:'expectativa',q:'Clareza de expectativas e desenvolvimento'},
+  {k:'expGDM',     q:'Experiência na GDM'},
+  {k:'sugestoes',  q:'Sugestões de melhoria'},
+  {k:'porq',       q:'Por que recomendaria?'}
+];
+
+var ROWS = [];
+var FILT = [];
+var CHS  = {};
+var DIM  = {hrbp:[],area:[],pais:[],org:[],site:[],mes:[]};
+
+function cel(r, i) {
+  var v = r[i];
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
+function numVal(r, i) {
+  var v = parseFloat(r[i]);
+  return isNaN(v) ? null : v;
+}
+
+function fmtMes(v) {
+  if (!v) return '';
+  try {
+    var d = (v instanceof Date) ? v : new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  } catch(e) { return ''; }
+}
+
+function fmtData(v) {
+  if (!v) return '—';
+  try {
+    var d = (v instanceof Date) ? v : new Date(v);
+    return d.toLocaleDateString('pt-BR');
+  } catch(e) { return '—'; }
+}
+
+function tempoAnos(adm, des) {
+  try {
+    var a = (adm instanceof Date) ? adm : new Date(adm);
+    var b = (des instanceof Date) ? des : (des ? new Date(des) : new Date());
+    var diff = (b - a) / (365.25 * 86400000);
+    return (diff > 0 && diff < 80) ? diff : null;
+  } catch(e) { return null; }
+}
+
+function fezEntrevista(r) { return cel(r, C.entrev).toLowerCase() === 'sim'; }
+function setEl(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+function corScore(v) { return v >= 4 ? '#AABF3E' : v >= 3 ? '#B27A59' : '#7D2D2D'; }
+
+function carregarArquivo(input) {
+  var f = input.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var all = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      ROWS = all.slice(1).filter(function(r){ return r.length >= 10 && cel(r,C.nome) !== ''; });
+      
+      if (!ROWS.length) {
+        document.getElementById('err-msg').textContent = 'Arquivo sem dados. Verifique a planilha.';
+        return;
+      }
+      
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('app').style.flexDirection = 'column';
+      
+      criarFiltros();
+      aplicarFiltros();
+    } catch(err) {
+      document.getElementById('err-msg').textContent = 'Erro ao ler arquivo: certifique-se que seja um .xlsx válido.';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+var DIM_DEFS = [
+  {lbl:'HRBP',    key:'hrbp', col:C.hrbp},
+  {lbl:'ÁREA',    key:'area', col:C.area},
+  {lbl:'PAÍS',    key:'pais', col:C.pais},
+  {lbl:'ORG UNIT',key:'org',  col:C.org},
+  {lbl:'SITE',    key:'site', col:C.site}
+];
+
+function opcoesParaChave(key, col) {
+  var base = ROWS.slice();
+  if (key !== 'mes'  && DIM.mes.length)  base = base.filter(function(r){ return DIM.mes.includes(fmtMes(r[C.dataD])); });
+  if (key !== 'area' && DIM.area.length) base = base.filter(function(r){ return DIM.area.includes(cel(r,C.area)); });
+  if (key !== 'hrbp' && DIM.hrbp.length) base = base.filter(function(r){ return DIM.hrbp.includes(cel(r,C.hrbp)); });
+  if (key !== 'pais' && DIM.pais.length) base = base.filter(function(r){ return DIM.pais.includes(cel(r,C.pais)); });
+  if (key !== 'org'  && DIM.org.length)  base = base.filter(function(r){ return DIM.org.includes(cel(r,C.org)); });
+  if (key !== 'site' && DIM.site.length) base = base.filter(function(r){ return DIM.site.includes(cel(r,C.site)); });
+  
+  if (key === 'mes') {
+    var vals = [];
+    base.forEach(function(r){ var m = fmtMes(r[C.dataD]); if (m && !vals.includes(m)) vals.push(m); });
+    return vals.sort().reverse();
+  }
+  
+  var vals = [];
+  base.forEach(function(r){ var v = cel(r,col); if (v && !vals.includes(v)) vals.push(v); });
+  return vals.sort();
+}
+
+function criarFiltros() {
+  var bar = document.getElementById('filter-bar-inner');
+  bar.innerHTML = '';
+  
+  DIM_DEFS.forEach(function(d) {
+    var wrap = document.createElement('div');
+    wrap.className = 'dd-wrap';
+    wrap.innerHTML = '<button class="fp" id="fbtn-'+d.key+'" onclick="toggleDD(\''+d.key+'\','+d.col+',this)">'+d.lbl+': <span id="flbl-'+d.key+'">Todos</span> ▾</button><div class="dropdown" id="fdd-'+d.key+'"></div>';
+    bar.appendChild(wrap);
+  });
+  
+  var wm = document.createElement('div');
+  wm.className = 'dd-wrap';
+  wm.innerHTML = '<button class="fp" id="fbtn-mes" onclick="toggleDD(\'mes\',-1,this)">MÊS REF: <span id="flbl-mes">Todos</span> ▾</button><div class="dropdown" id="fdd-mes"></div>';
+  bar.appendChild(wm);
+  
+  var clr = document.createElement('button');
+  clr.className = 'fp fp-clear';
+  clr.textContent = 'LIMPAR';
+  clr.onclick = function() {
+    Object.keys(DIM).forEach(function(k){ DIM[k] = []; });
+    document.querySelectorAll('[id^="flbl-"]').forEach(function(e){ e.textContent = 'Todos'; });
+    document.querySelectorAll('[id^="fbtn-"]').forEach(function(e){ e.classList.remove('on'); });
+    aplicarFiltros();
+  };
+  bar.appendChild(clr);
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dd-wrap')) {
+      document.querySelectorAll('.dropdown').forEach(function(d){ d.classList.remove('open'); });
+    }
+  });
+}
+
+function toggleDD(key, col, btn) {
+  document.querySelectorAll('.dropdown').forEach(function(d) { if (d.id !== 'fdd-'+key) d.classList.remove('open'); });
+  var dd = document.getElementById('fdd-'+key);
+  dd.classList.toggle('open');
+  if (!dd.classList.contains('open')) return;
+  var opts = opcoesParaChave(key, col);
+  var cur = DIM[key];
+  var html = '<div class="dd-all" onclick="toggleTodos(\''+key+'\','+col+')">Selecionar Todos</div>';
+  opts.forEach(function(v) {
+    var safe = v.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html += '<label class="dd-opt"><input type="checkbox" '+(cur.includes(v)?'checked':'')
+      +' onchange="toggleOpt(\''+key+'\','+col+',\''+safe+'\',this.checked)" style="accent-color:#105FA2"> '+v+'</label>';
+  });
+  dd.innerHTML = html;
+}
+
+function toggleTodos(key, col) {
+  var opts = opcoesParaChave(key, col);
+  DIM[key] = (DIM[key].length === opts.length) ? [] : opts.slice();
+  atualizarLabel(key);
+  document.getElementById('fdd-'+key).classList.remove('open');
+  aplicarFiltros();
+}
+
+function toggleOpt(key, col, val, checked) {
+  if (checked) { if (!DIM[key].includes(val)) DIM[key].push(val); }
+  else DIM[key] = DIM[key].filter(function(x){ return x !== val; });
+  atualizarLabel(key);
+  aplicarFiltros();
+}
+
+function atualizarLabel(key) {
+  var n = DIM[key].length;
+  var lbl = document.getElementById('flbl-'+key);
+  var btn = document.getElementById('fbtn-'+key);
+  if (lbl) lbl.textContent = n === 0 ? 'Todos' : n === 1 ? DIM[key][0] : '('+n+')';
+  if (btn) btn.classList.toggle('on', n > 0);
+}
+
+function aplicarFiltros() {
+  FILT = ROWS.filter(function(r) {
+    if (DIM.hrbp.length && !DIM.hrbp.includes(cel(r,C.hrbp))) return false;
+    if (DIM.area.length && !DIM.area.includes(cel(r,C.area))) return false;
+    if (DIM.pais.length && !DIM.pais.includes(cel(r,C.pais))) return false;
+    if (DIM.org.length  && !DIM.org.includes(cel(r,C.org)))   return false;
+    if (DIM.site.length && !DIM.site.includes(cel(r,C.site))) return false;
+    if (DIM.mes.length  && !DIM.mes.includes(fmtMes(r[C.dataD]))) return false;
+    return true;
+  });
+  renderTudo();
+}
+
+function renderTudo() {
+  renderKPIs();
+  renderGraficosVolume();
+  renderScore();
+  renderScoreMes();
+  renderQualSelect();
+  renderAnalitico();
+}
+
+function renderKPIs() {
+  var d = FILT;
+  var com = d.filter(fezEntrevista);
+  setEl('kv-tot', d.length);
+  var pct = d.length ? Math.round(com.length / d.length * 100) : 0;
+  setEl('kv-ades', pct + '%');
+  setEl('kv-ades-sub', com.length + ' entrevistas · ' + d.length + ' total');
+  var tempos = d.map(function(r){ return tempoAnos(r[C.dataAdm], r[C.dataD]); }).filter(function(v){ return v !== null; });
+  setEl('kv-tempo', tempos.length ? (tempos.reduce(function(a,b){return a+b;},0)/tempos.length).toFixed(1)+'a' : '—');
+}
+
+function renderGraficosVolume() {
+  var d = FILT;
+  
+  var mesMap = {};
+  d.forEach(function(r) { var m = fmtMes(r[C.dataD]); if (m) mesMap[m] = (mesMap[m]||0)+1; });
+  var mKeys = Object.keys(mesMap).sort();
+  mkBar('ch-mes', mKeys, mKeys.map(function(k){ return mesMap[k]; }), '#105FA2');
+
+  var motMap = {};
+  d.forEach(function(r) { var m = cel(r,C.motivo)||'N/D'; motMap[m] = (motMap[m]||0)+1; });
+  var motE = Object.entries(motMap).sort(function(a,b){ return b[1]-a[1]; });
+  mkDonut('ch-mot', motE.map(function(x){return x[0];}), motE.map(function(x){return x[1];}));
+
+  var arMap = {};
+  d.forEach(function(r) { var a = cel(r,C.area)||'N/D'; arMap[a] = (arMap[a]||0)+1; });
+  var arE = Object.entries(arMap).sort(function(a,b){ return b[1]-a[1]; });
+  var arMax = arE.length ? arE[0][1] : 1;
+  var el = document.getElementById('area-bars');
+  if (el) {
+    el.innerHTML = arE.map(function(x) {
+      var pct = Math.round(x[1]/arMax*100);
+      return '<div class="bar-row"><div class="bar-lbl">'+x[0]+'</div><div class="bar-bg"><div class="bar-fill" style="width:'+pct+'%;background:#0B2838"></div></div><div class="bar-val">'+x[1]+'</div></div>';
+    }).join('');
+  }
+}
+
+function renderScore() {
+  var com = FILT.filter(fezEntrevista);
+  var expCols = [C.e1,C.e2,C.e3,C.e4,C.e5,C.e6];
+  var lidCols = [C.l1,C.l2,C.l3,C.l4,C.l5,C.l6,C.l7];
+
+  renderBarrasScore('bars-exp', EXP_LABELS, expCols, com);
+  var avgExp = mediaMulti(com, expCols);
+  var elAE = document.getElementById('avg-exp');
+  if (elAE) { elAE.textContent = avgExp !== null ? avgExp.toFixed(2)+' / 5' : '—'; elAE.style.color = avgExp !== null ? corScore(avgExp) : '#8A9FA0'; }
+
+  renderBarrasScore('bars-lid', LID_LABELS, lidCols, com);
+  var avgLid = mediaMulti(com, lidCols);
+  var elAL = document.getElementById('avg-lid');
+  if (elAL) { elAL.textContent = avgLid !== null ? avgLid.toFixed(2)+' / 5' : '—'; elAL.style.color = avgLid !== null ? corScore(avgLid) : '#8A9FA0'; }
+
+  var simN = com.filter(function(r){ return cel(r,C.recom).toLowerCase()==='sim'; }).length;
+  var naoN = com.length - simN;
+  mkDonut('ch-recom', ['Sim ('+simN+')','Não ('+naoN+')'], [simN, naoN], ['#AABF3E','#7D2D2D']);
+}
+
+function renderBarrasScore(elId, labels, cols, rows) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = '';
+  cols.forEach(function(c, i) {
+    var vals = rows.map(function(r){ return numVal(r,c); }).filter(function(v){ return v !== null; });
+    var avg = vals.length ? vals.reduce(function(a,b){return a+b;},0)/vals.length : 0;
+    var pct = avg / 5 * 100;
+    var cor = corScore(avg);
+    el.innerHTML += '<div class="bar-row"><div class="bar-lbl">'+labels[i]+'</div><div class="bar-bg"><div class="bar-fill" style="width:'+pct.toFixed(1)+'%;background:'+cor+'"></div></div><div class="bar-val" style="color:'+cor+'">'+avg.toFixed(1)+'</div></div>';
+  });
+}
+
+function mediaMulti(rows, cols) {
+  var sum = 0, n = 0;
+  rows.forEach(function(r) { cols.forEach(function(c) { var v = numVal(r,c); if (v !== null){sum+=v;n++;} }); });
+  return n > 0 ? sum/n : null;
+}
+
+function renderScoreMes() {
+  var com = FILT.filter(fezEntrevista);
+  var expCols = [C.e1,C.e2,C.e3,C.e4,C.e5,C.e6];
+  var lidCols = [C.l1,C.l2,C.l3,C.l4,C.l5,C.l6,C.l7];
+  var mesGrupo = {};
+  
+  com.forEach(function(r) {
+    var m = fmtMes(r[C.dataD]); if (!m) return;
+    if (!mesGrupo[m]) mesGrupo[m] = [];
+    mesGrupo[m].push(r);
+  });
+  
+  var meses = Object.keys(mesGrupo).sort();
+  var tbody = document.getElementById('tbl-mes-body');
+  if (!tbody) return;
+  var html = '';
+  var totE=0, sumE=0, nE=0, sumL=0, nL=0;
+  
+  meses.forEach(function(m) {
+    var rows = mesGrupo[m];
+    totE += rows.length;
+    var se=0,ne=0,sl=0,nl=0;
+    rows.forEach(function(r) {
+      expCols.forEach(function(c){ var v=numVal(r,c); if(v!==null){se+=v;ne++;} });
+      lidCols.forEach(function(c){ var v=numVal(r,c); if(v!==null){sl+=v;nl++;} });
+    });
+    sumE+=se;nE+=ne;sumL+=sl;nL+=nl;
+    var aE = ne>0?(se/ne).toFixed(2):'—';
+    var aL = nl>0?(sl/nl).toFixed(2):'—';
+    var aG = (ne+nl)>0?((se+sl)/(ne+nl)).toFixed(2):'—';
+    var cc = function(v){ return v==='—'?'#8A9FA0':corScore(parseFloat(v)); };
+    html += '<tr><td>'+m+'</td><td style="text-align:center">'+rows.length+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+cc(aE)+'">'+aE+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+cc(aL)+'">'+aL+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+cc(aG)+'">'+aG+'</td></tr>';
+  });
+  
+  if (meses.length > 1) {
+    var aET=nE>0?(sumE/nE).toFixed(2):'—', aLT=nL>0?(sumL/nL).toFixed(2):'—';
+    var aGT=(nE+nL)>0?((sumE+sumL)/(nE+nL)).toFixed(2):'—';
+    var cc=function(v){return v==='—'?'#8A9FA0':corScore(parseFloat(v));};
+    html += '<tr style="background:#F4F6F5;border-top:2px solid #C4CDCC"><td style="font-weight:800">Total/Média</td><td style="text-align:center;font-weight:700">'+totE+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:'+cc(aET)+'">'+aET+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:'+cc(aLT)+'">'+aLT+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:'+cc(aGT)+'">'+aGT+'</td></tr>';
+  }
+  
+  if (!meses.length) html = '<tr><td colspan="5" style="text-align:center;color:#8A9FA0;padding:1rem">Sem entrevistas no filtro</td></tr>';
+  tbody.innerHTML = html;
+}
+
+function renderQualSelect() {
+  var com = FILT.filter(fezEntrevista);
+  var sel = document.getElementById('sel-pessoa');
+  if (!sel) return;
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">— Escolha uma pessoa —</option>';
+  
+  com.forEach(function(r, i) {
+    var opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = (cel(r,C.nome)||'Pessoa '+(i+1)) + ' · ' + (cel(r,C.area)||'');
+    sel.appendChild(opt);
+  });
+  
+  setEl('sel-count', com.length + ' entrevistado(s)');
+  if (prev !== '' && com[parseInt(prev)]) { sel.value = prev; mostrarPessoa(); }
+  else document.getElementById('pessoa-card').innerHTML = '';
+}
+
+function mostrarPessoa() {
+  var sel = document.getElementById('sel-pessoa');
+  var card = document.getElementById('pessoa-card');
+  if (!sel || !card) return;
+  if (!sel.value) { card.innerHTML = ''; return; }
+  var com = FILT.filter(fezEntrevista);
+  var idx = parseInt(sel.value);
+  var r = com[idx];
+  
+  if (!r) { card.innerHTML = '<p style="color:#8A9FA0;font-size:.85rem">Não encontrado.</p>'; return; }
+
+  var t = tempoAnos(r[C.dataAdm], r[C.dataD]);
+  var recom = cel(r,C.recom);
+  var perf = cel(r,C.perf);
+  var perfCls = {''  :'bs','Acima do Esperado':'bg','Alinhado':'ba','Abaixo do Esperado':'br'}[perf]||'bs';
+  var recomCls = recom.toLowerCase()==='sim' ? 'bg' : 'br';
+
+  var qas = QUAL_QS.map(function(q) {
+    var resp = cel(r, C[q.k]);
+    if (!resp) return '';
+    return '<div class="qa-block"><div class="qa-q">'+q.q+'</div><div class="qa-a">'+resp+'</div></div>';
+  }).filter(Boolean).join('');
+
+  var comentRH = cel(r,C.comentRH);
+  var comentBlock = comentRH ? '<div class="qa-block" style="border-left-color:#105FA2;margin-top:.75rem"><div class="qa-q" style="color:#105FA2">Comentários do RH</div><div class="qa-a">'+comentRH+'</div></div>' : '';
+
+  card.innerHTML = '<div style="background:#FAFBFC;border:1px solid #C4CDCC;border-radius:12px;padding:1.25rem">'
+    +'<div class="pessoa-header">'
+      +'<div><div class="pessoa-nome">'+cel(r,C.nome)+'</div><div class="pessoa-sub">'+cel(r,C.area)+' · '+cel(r,C.nivel)+' · '+cel(r,C.site)+'</div></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">'
+        +'<span class="badge bs">📅 '+fmtData(r[C.dataD])+'</span>'
+        +(t!==null?'<span class="badge bb">'+t.toFixed(1)+'a</span>':'')
+        +(perf?'<span class="badge '+perfCls+'">'+perf+'</span>':'')
+        +(recom?'<span class="badge '+recomCls+'">Recomenda: '+recom+'</span>':'')
+      +'</div>'
+    +'</div>'
+    +'<div class="info2">'
+      +'<div class="info-box"><div class="info-box-l">Líder Direto</div><div class="info-box-v">'+cel(r,C.lider)+'</div></div>'
+      +'<div class="info-box"><div class="info-box-l">Motivo Principal</div><div class="info-box-v">'+cel(r,C.motivo)+'</div></div>'
+    +'</div>'
+    + qas + comentBlock
+    +'</div>';
+}
+
+function renderAnalitico() {
+  var tbody = document.getElementById('tbl-ana-body');
+  if (!tbody) return;
+  var rows = FILT;
+  tbody.innerHTML = '';
+  
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#8A9FA0;padding:1.5rem">Sem dados no filtro</td></tr>';
+    return;
+  }
+  
+  rows.forEach(function(r) {
+    var perf = cel(r,C.perf);
+    var perfCls = {'Acima do Esperado':'bg','Alinhado':'ba','Abaixo do Esperado':'br'}[perf]||'bs';
+    var entrev = fezEntrevista(r);
+    var recom = cel(r,C.recom);
+    var recomCls = recom.toLowerCase()==='sim'?'bg':'br';
+    
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td style="font-weight:600">'+cel(r,C.nome)+'</td>'
+      +'<td>'+cel(r,C.area)+'</td>'
+      +'<td>'+cel(r,C.lider)+'</td>'
+      +'<td>'+cel(r,C.hrbp)+'</td>'
+      +'<td>'+fmtData(r[C.dataD])+'</td>'
+      +'<td>'+cel(r,C.tipo)+'</td>'
+      +'<td>'+cel(r,C.motivo)+'</td>'
+      +'<td>'+(perf?'<span class="badge '+perfCls+'">'+perf+'</span>':'—')+'</td>'
+      +'<td>'+(entrev?'<span class="badge bg">Sim</span>':'<span class="badge br">Não</span>')+'</td>'
+      +'<td>'+(recom?'<span class="badge '+recomCls+'">'+recom+'</span>':'—')+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function buscar(term) {
+  var t = term.toLowerCase();
+  document.querySelectorAll('#tbl-ana-body tr').forEach(function(tr) {
+    tr.style.display = tr.textContent.toLowerCase().includes(t) ? '' : 'none';
+  });
+}
+
+function exportar() {
+  try { 
+    var wb=XLSX.utils.table_to_book(document.getElementById('tbl-ana'),{sheet:'Analítico'}); 
+    XLSX.writeFile(wb,'Analitico_Offboarding.xlsx'); 
+  } catch(e){ 
+    alert('Erro ao exportar: '+e.message); 
+  }
+}
+
+var CORES = ['#0B2838','#105FA2','#C1803E','#8FB03E','#5A6A6E','#B8C5C8','#778689'];
+
+function mkBar(id, labels, vals, color) {
+  var ctx = document.getElementById(id); if (!ctx) return;
+  if (CHS[id]) { CHS[id].destroy(); delete CHS[id]; }
+  CHS[id] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:labels, datasets:[{data:vals, backgroundColor:color+'CC', borderRadius:5, borderSkipped:false}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}, border:{display:false}},
+        y:{grid:{color:'#EAECEC'}, border:{display:false}, beginAtZero:true, ticks:{precision:0}}
+      }
+    }
+  });
+}
+
+function mkDonut(id, labels, vals, colors) {
+  var ctx = document.getElementById(id); if (!ctx) return;
+  if (CHS[id]) { CHS[id].destroy(); delete CHS[id]; }
+  var pal = colors || CORES;
+  var tot = vals.reduce(function(a,b){return a+b;},0)||1;
+  CHS[id] = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:labels, datasets:[{data:vals, backgroundColor:pal, borderWidth:2, borderColor:'#fff'}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'58%',
+      plugins:{
+        legend:{display:true, position:'bottom', labels:{font:{size:11}, boxWidth:10, padding:10}},
+        tooltip:{callbacks:{label:function(c){return ' '+c.parsed+' ('+Math.round(c.parsed/tot*100)+'%)';}}}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
