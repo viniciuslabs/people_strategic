@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People Operations · People Strategy</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        'brand-warm':   '#F7F7F5',
+        'brand-navy':   '#11293B',
+        'brand-blue':   '#1560A1',
+        'brand-copper': '#B47B5A',
+        'brand-lime':   '#A9C03E',
+        'brand-black':  '#050505',
+        'brand-slate':  '#78878B',
+        'brand-silver': '#E5E7EB',
+      },
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+    }
+  }
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+body{height:100vh;overflow:hidden;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+.app-shell{display:none;flex-direction:column;height:100vh;overflow:hidden;background:var(--bg-body);}
+.app-shell.visible{display:flex;}
+.dash-scroll{flex:1;overflow-y:auto;padding:1.5rem 2rem 3rem;}
+@media(max-width:768px){.dash-scroll{padding:1rem;}}
+/* Heatmap cells */
+.hm-cell{text-align:center;font-size:.65rem;font-weight:600;padding:6px 4px;border-radius:4px;min-width:38px;}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash" class="splash-screen splash-orange">
+  <div class="splash-blob-tl"></div><div class="splash-blob-br"></div>
+  <div class="splash-dot" style="width:12px;height:12px;background:#105FA2;position:absolute;right:280px;top:110px"></div>
+  <div class="splash-dot" style="width:10px;height:10px;background:#0B2838;position:absolute;right:200px;top:170px"></div>
+  <div class="splash-dot" style="width: 8px;height: 8px;background:#AABF3E;position:absolute;right:160px;top:290px"></div>
+  <a href="hub.html" class="splash-back-link"><i class="ph ph-house"></i> Hub</a>
+  <div class="splash-content">
+    <div class="splash-brand">
+      <div class="splash-brand-bar"></div>
+      <div>
+        <h1 class="splash-title">People Operations</h1>
+        <p class="splash-subtitle">People Analytics</p>
+      </div>
+    </div>
+    <p class="splash-tagline"><strong>Headcount, admissões, compensação e retenção.</strong><br>Carregue a base para gerar os indicadores em tempo real.</p>
+    <div class="splash-uploads single">
+      <label class="splash-upload-card" id="card-po">
+        <input type="file" id="file-po" accept=".xlsx" onchange="markLoaded('card-po')">
+        <i class="ph ph-check-circle splash-upload-check"></i>
+        <div class="splash-upload-icon"><i class="ph-fill ph-users-three"></i></div>
+        <div class="splash-upload-title">Carregue a Base People Operations</div>
+        <div class="splash-upload-desc">Abas: Ativos e Desligados</div>
+      </label>
+    </div>
+    <button class="splash-process-btn" onclick="loadFile()">
+      <span id="btn-txt">Acessar Dashboard</span>
+      <i class="ph ph-arrow-right" id="btn-ico"></i>
+      <i class="ph ph-spinner animate-spin hidden" id="btn-spin"></i>
+    </button>
+    <div class="splash-privacy-note"><i class="ph-fill ph-lock-key"></i><span><strong>Privacidade garantida.</strong> Dados processados localmente. Nada é armazenado ou enviado.</span></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app-shell">
+  <div class="header-stack">
+    <header class="top-bar">
+      <a href="hub.html" style="display:flex;align-items:center;gap:.7rem;text-decoration:none;color:inherit;">
+        <div class="brand-mini-logo" style="background:linear-gradient(135deg,#1560A1,#11293B)"><i class="ph-fill ph-users-three"></i></div>
+        <div class="brand-mini-text"><h1>People Operations</h1><p style="color:#1560A1" style="color:#105FA2">People Analytics</p></div>
+      </a>
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="relative" id="mes-wrap" style="display:none">
+          <button class="btn-exec" id="btn-mes" onclick="toggleMes(event)" style="gap:6px">
+            <i class="ph ph-calendar" style="color:#105FA2;font-size:1rem"></i>
+            <span id="lbl-mes" class="text-xs font-semibold">Período</span>
+            <i class="ph ph-caret-down" style="font-size:.75rem;color:#8A9FA0"></i>
+          </button>
+          <div class="dropdown-menu" id="dd-mes" onclick="event.stopPropagation()" style="right:0;left:auto;min-width:200px"></div>
+        </div>
+        <a href="hub.html" class="btn-hub"><i class="ph-fill ph-house"></i><span>Hub</span></a>
+      </div>
+    </header>
+    <div class="filters-area">
+      <div class="filters-label"><i class="ph ph-faders"></i> Filtros de Dimensão</div>
+      <div id="filter-bar" class="flex flex-wrap gap-2 items-center relative"></div>
+    </div>
+    <nav class="tab-nav">
+      <div onclick="goTab('exec')" id="nav-exec" class="tab-item active"><i class="ph ph-squares-four"></i><span>Visão Executiva</span></div>
+      <div onclick="goTab('adm')"  id="nav-adm"  class="tab-item"><i class="ph ph-user-plus"></i><span>Admitidos</span></div>
+      <div onclick="goTab('comp')" id="nav-comp" class="tab-item"><i class="ph ph-currency-circle-dollar"></i><span>Compensação</span></div>
+      <div onclick="goTab('ret')"  id="nav-ret"  class="tab-item"><i class="ph ph-trend-down"></i><span>Retenção</span></div>
+      <div onclick="goTab('gloss')" id="nav-gloss" class="tab-item tab-gloss"><i class="ph ph-book-bookmark"></i><span>Glossário</span></div>
+    </nav>
+  </div>
+
+  <div class="dash-scroll">
+    <div class="max-w-[1600px] mx-auto">
+
+<!-- ═══ EXECUTIVA ═══════════════════════════════════════════════ -->
+<div id="view-exec" class="view-section space-y-4">
+  <div class="page-header"><h2>Visão Executiva</h2><p>Indicadores estratégicos do ciclo de pessoas no período selecionado.</p></div>
+  <div id="exec-alerts" class="space-y-2"></div>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--primary-light);color:var(--primary)"><i class="ph ph-users"></i></div><div class="kpi-exec-label">Headcount (HC)</div></div><div class="kpi-exec-number" style="color:var(--primary)" id="e-hc">-</div><div class="kpi-exec-comp" id="e-hc-s">Média do período</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger)"><i class="ph ph-trend-down"></i></div><div class="kpi-exec-label">Turnover Geral (Média 3M)</div></div><div class="kpi-exec-number" style="color:var(--danger)" id="e-turn">-</div><div class="kpi-exec-comp" id="e-turn-s">Desligados / HC Médio</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:#F5EDE4;color:#B27A59"><i class="ph ph-hourglass"></i></div><div class="kpi-exec-label">Tempo de Casa (Tenure)</div></div>
+      <div class="kpi-exec-number" style="color:#B27A59;font-size:1.4rem" id="e-tenure-med">-</div>
+      <div class="kpi-exec-comp" id="e-tenure-sub" style="margin-top:2px">-</div>
+    </div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--purple-light);color:var(--purple)"><i class="ph ph-git-branch"></i></div><div class="kpi-exec-label">Span of Control</div></div><div class="kpi-exec-number" style="color:var(--purple)" id="e-span">-</div><div class="kpi-exec-comp" id="e-span-s">Colaboradores/líder</div></div>
+  </div>
+  <!-- ── Novos cards executivos ── -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="exec-new-cards" style="margin-bottom:.5rem">
+    <div class="section-block">
+      <div class="section-title">TOTAL DE ADMITIDOS</div>
+      <div id="enc-adm-total" style="font-size:2rem;font-weight:800;color:#105FA2;line-height:1">—</div>
+      <div id="enc-adm-sub" style="font-size:.72rem;color:#778689;margin-top:.3rem">No período</div>
+    </div>
+    <div class="section-block">
+      <div class="section-title">TIPO DE SAÍDA</div>
+      <div id="enc-saida-total" style="font-size:1.4rem;font-weight:800;color:#0B2838;line-height:1;margin-bottom:.5rem">—</div>
+      <div id="enc-saida-breakdown" style="display:flex;flex-direction:column;gap:.35rem"></div>
+    </div>
+    <div class="section-block">
+      <div class="section-title">ADERÊNCIA À FAIXA · COMPA-RATIO</div>
+      <div id="enc-cr-breakdown" style="display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem"></div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="section-block lg:col-span-2"><div class="section-title"><span class="section-number">1.</span> EVOLUÇÃO DE HEADCOUNT · ÚLTIMOS 12 MESES</div><div style="height:240px"><canvas id="ch-hc-evo"></canvas></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">2.</span> COMPA-RATIO · ADERÊNCIA À FAIXA</div><div style="height:240px"><canvas id="ch-cr-exec"></canvas></div></div>
+  </div>
+  <div class="section-block">
+    <div class="section-title"><span class="section-number">3.</span> DISTRIBUIÇÃO POR NÍVEL ESTRATÉGICO</div>
+    <p class="text-xs text-slate-500 mb-4">Estratégico: Grades 12+ &nbsp;·&nbsp; Tático: Grades 7–11 &nbsp;·&nbsp; Operacional: Grades abaixo de 7</p>
+    <div style="height:200px"><canvas id="ch-nivel"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ ADMITIDOS ════════════════════════════════════════════════ -->
+<div id="view-adm" class="view-section hidden space-y-4">
+  <div class="page-header"><h2>Admitidos</h2><p>Contratações realizadas no período — dados deduplicados por colaborador.</p></div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success)"><i class="ph ph-user-plus"></i></div><div class="kpi-exec-label">Total Admitidos</div></div><div class="kpi-exec-number" style="color:var(--success)" id="a-total">-</div><div class="kpi-exec-comp" id="a-total-s">No período</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--primary-light);color:var(--primary)"><i class="ph ph-chart-bar"></i></div><div class="kpi-exec-label">Área com mais admissões</div></div><div class="kpi-exec-number" style="color:var(--primary);font-size:1.1rem;line-height:1.3" id="a-top-area">-</div><div class="kpi-exec-comp" id="a-top-area-s">-</div></div>
+
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="section-block"><div class="section-title"><span class="section-number">1.</span> ADMISSÕES POR MÊS</div><div style="height:260px"><canvas id="ch-adm-mes"></canvas></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">2.</span> ADMISSÕES POR ÁREA</div><div style="height:260px"><canvas id="ch-adm-area"></canvas></div></div>
+  </div>
+  <div class="section-block">
+    <div class="table-toolbar">
+      <div class="section-title mb-0"><span class="section-number">3.</span> ANALÍTICO DE ADMISSÕES</div>
+      <div class="table-toolbar-actions">
+        <div class="search-wrap"><i class="ph ph-magnifying-glass"></i><input type="text" placeholder="Buscar..." class="search-input" onkeyup="srch('tb-adm',this.value)"></div>
+        <button onclick="xls('tb-adm','Admitidos')" class="btn-exec"><i class="ph ph-download-simple"></i> Baixar</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-[500px] overflow-y-auto">
+      <table id="tb-adm" class="modern-table">
+        <thead><tr><th>Mês Ref.</th><th>Unidade Org.</th><th>Nome</th><th>Cargo</th><th class="text-center">Grade</th><th>Data Admissão</th><th>Tempo Empresa</th><th>HRBP</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COMPENSAÇÃO ══════════════════════════════════════════════ -->
+<div id="view-comp" class="view-section hidden space-y-4">
+  <div class="page-header"><h2>Compensação</h2><p>Análise de posicionamento salarial dos colaboradores ativos.</p></div>
+
+  <!-- Card único de aderência à faixa -->
+  <div class="section-block">
+    <div class="section-title">ADERÊNCIA À FAIXA (COMPA-RATIO) · DISTRIBUIÇÃO GERAL</div>
+    <div class="grid grid-cols-3 gap-4" id="cr-faixa-cards"></div>
+    <div class="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:var(--danger)"></span>Abaixo de 80%</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:var(--success)"></span>Faixa Ideal 80–120%</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:var(--purple)"></span>Acima de 120%</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="section-block"><div class="section-title"><span class="section-number">1.</span> COMPA-RATIO POR ÁREA · DISTRIBUIÇÃO POR FAIXA</div><div id="comp-bands" class="space-y-2.5"></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">2.</span> COMPA-RATIO MÉDIO POR GRADE</div><div style="height:240px"><canvas id="ch-cr-grade"></canvas></div></div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-title"><span class="section-number">3.</span> MAPA DE CALOR · GRADE × FAIXA SALARIAL</div>
+    <p class="text-xs text-slate-500 mb-3">Quantidade de colaboradores por Grade e posição na faixa. Cores: verde = faixa ideal, vermelho = atenção.</p>
+    <div id="comp-heatmap" style="overflow-x:auto;min-height:60px"></div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="section-block"><div class="section-title"><span class="section-number">4.</span> COMPA-RATIO POR TEMPO DE CASA</div><p class="text-xs text-slate-500 mb-3">Média por bucket de tenure.</p><div style="height:220px"><canvas id="ch-cr-tenure"></canvas></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">5.</span> CORRELAÇÃO TEMPO × COMPA-RATIO</div><p class="text-xs text-slate-500 mb-3">Cada ponto é um colaborador. Vermelho = abaixo de 80%.</p><div style="height:220px"><canvas id="ch-cr-scatter"></canvas></div></div>
+  </div>
+
+  <div class="section-block">
+    <div class="table-toolbar">
+      <div class="section-title mb-0"><span class="section-number">6.</span> ANALÍTICO DE COMPENSAÇÃO</div>
+      <div class="table-toolbar-actions">
+        <div class="pill-group">
+          <button class="active" id="cb-all" onclick="setCompFilter('ALL')">Todos</button>
+          <button id="cb-low" onclick="setCompFilter('low')">Abaixo 80%</button>
+          <button id="cb-mid" onclick="setCompFilter('mid')">80–120%</button>
+          <button id="cb-high" onclick="setCompFilter('high')">Acima 120%</button>
+        </div>
+        <div class="search-wrap"><i class="ph ph-magnifying-glass"></i><input type="text" placeholder="Buscar..." class="search-input" id="comp-search" onkeyup="srch('tb-comp',this.value)"></div>
+        <button onclick="xls('tb-comp','Compensacao')" class="btn-exec"><i class="ph ph-download-simple"></i> Baixar</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-[500px] overflow-y-auto">
+      <table id="tb-comp" class="modern-table">
+        <thead><tr><th>Mês Ref.</th><th>Unidade Org.</th><th>Nome</th><th>Cargo</th><th>Data Adm.</th><th>Tempo Emp.</th><th class="text-right">Compa-Ratio</th><th>Categoria</th><th>HRBP</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RETENÇÃO ═════════════════════════════════════════════════ -->
+<div id="view-ret" class="view-section hidden space-y-4">
+  <div class="page-header"><h2>Retenção & Turnover</h2><p>Análise de desligamentos, motivos e perfil de quem saiu.</p></div>
+  <div class="flex justify-end mb-1">
+    <div class="pill-group">
+      <button class="active" id="rb-all" onclick="setRetFilter('ALL')">Todos</button>
+      <button id="rb-vol" onclick="setRetFilter('VOL')">Voluntário</button>
+      <button id="rb-inv" onclick="setRetFilter('INV')">Involuntário</button>
+    </div>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger)"><i class="ph ph-user-minus"></i></div><div class="kpi-exec-label">Total Desligados</div></div><div class="kpi-exec-number" style="color:var(--danger)" id="r-total">-</div><div class="kpi-exec-comp" id="r-tipo">-</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:#F5EDE4;color:#B27A59"><i class="ph ph-percent"></i></div><div class="kpi-exec-label">Turnover</div></div><div class="kpi-exec-number" style="color:#B27A59" id="r-turn">-</div><div class="kpi-exec-comp">Desligados/HC Médio</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--purple-light);color:var(--purple)"><i class="ph ph-hourglass"></i></div><div class="kpi-exec-label">Longevidade Média</div></div><div class="kpi-exec-number" style="color:var(--purple)" id="r-long">-</div><div class="kpi-exec-comp">Anos na saída</div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger)"><i class="ph-fill ph-star"></i></div><div class="kpi-exec-label">Perda Talento Crítico</div></div><div class="kpi-exec-number" style="color:var(--danger)" id="r-crit">-</div><div class="kpi-exec-comp" id="r-crit-s"></div></div>
+    <div class="kpi-exec"><div class="kpi-exec-header"><div class="kpi-exec-icon" style="background:var(--primary-light);color:var(--primary)"><i class="ph ph-chat-teardrop-text"></i></div><div class="kpi-exec-label">Top Motivo</div></div><div class="kpi-exec-number" style="color:var(--primary);font-size:.85rem;line-height:1.3" id="r-top-motivo">-</div><div class="kpi-exec-comp" id="r-top-motivo-s">-</div></div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="section-block"><div class="section-title"><span class="section-number">1.</span> TIPO DE SAÍDA</div><div style="height:220px;display:flex;align-items:center;justify-content:center"><canvas id="ch-tipo-saida"></canvas></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">2.</span> PERFORMANCE DOS DESLIGADOS</div><div style="height:220px;display:flex;align-items:center;justify-content:center"><canvas id="ch-perf-deslig"></canvas></div></div>
+    <div class="section-block"><div class="section-title"><span class="section-number">3.</span> COMPARATIO DE QUEM SAIU</div><div style="height:220px"><canvas id="ch-cr-deslig"></canvas></div></div>
+  </div>
+  <div class="section-block"><div class="section-title"><span class="section-number">4.</span> MOTIVOS DE SAÍDA</div><div style="height:220px"><canvas id="ch-motivos"></canvas></div></div>
+  <div class="section-block">
+    <div class="table-toolbar">
+      <div class="section-title mb-0"><span class="section-number">5.</span> ANALÍTICO DE DESLIGAMENTOS</div>
+      <div class="table-toolbar-actions">
+        <div class="search-wrap"><i class="ph ph-magnifying-glass"></i><input type="text" placeholder="Buscar..." class="search-input" onkeyup="srch('tb-ret',this.value)"></div>
+        <button onclick="xls('tb-ret','Desligamentos')" class="btn-exec"><i class="ph ph-download-simple"></i> Baixar</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-[500px] overflow-y-auto">
+      <table id="tb-ret" class="modern-table">
+        <thead><tr><th>Nome</th><th>Área</th><th>Level</th><th>Grade</th><th>Tipo</th><th>Motivo</th><th>Performance</th><th class="text-right">Compa-Ratio</th><th>Crítico</th><th>Tempo Casa</th><th>HRBP</th><th>Data Deslig.</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GLOSSÁRIO ════════════════════════════════════════════════ -->
+<div id="view-gloss" class="view-section hidden space-y-4">
+        <div class="page-header"><h2>Glossário · People Operations</h2></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="section-block">
+            <h3 class="font-bold text-slate-900 mb-4">Indicadores de Headcount & Fluxo</h3>
+            <ul class="space-y-4 text-xs text-slate-600">
+              <li class="border-b border-slate-100 pb-4">
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Headcount (HC)</span>
+                Média do total de ativos no período selecionado.
+              </li>
+              <li class="border-b border-slate-100 pb-4">
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Turnover Geral</span>
+                <strong>(Total Desligados / HC Médio) × 100.</strong><br>
+                <span class="text-slate-500 mt-1 block">Conceito de Fluxo: este indicador apoia a tomada de decisão sobre saúde da atração e retenção, calibrando se estamos perdendo talentos na mesma velocidade que contratamos.</span>
+              </li>
+              <li class="border-b border-slate-100 pb-4">
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Mediana × Média de Tenure</span>
+                <strong>Mediana</strong> é o valor central quando todos os tempos de casa são ordenados. É mais resistente a outliers (por ex., colaboradores com 20+ anos que distorcem a média).
+                <br><strong>Média</strong> é a soma de todos os tempos dividida pelo total de colaboradores. Mais sensível a valores extremos.
+                <br><span class="text-slate-500 mt-1 block">Regra prática: se Mediana &lt; Média, há poucos veteranos puxando a média para cima.</span>
+              </li>
+              <li>
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Span of Control</span>
+                Razão entre colaboradores e líderes únicos. Indica quantas pessoas cada líder gerencia em média.
+              </li>
+            </ul>
+          </div>
+          <div class="section-block">
+            <h3 class="font-bold text-slate-900 mb-4">Compa-Ratio & Compensação</h3>
+            <ul class="space-y-4 text-xs text-slate-600">
+              <li class="border-b border-slate-100 pb-4">
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Compa-Ratio (CR)</span>
+                Salário / Midpoint da Faixa. Target ideal: 80% a 120%.
+                <div class="mt-2 space-y-1">
+                  <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-red-500 shrink-0"></span><span><strong class="text-red-700">Abaixo de 80%:</strong> abaixo do mínimo — risco de saída.</span></div>
+                  <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-emerald-500 shrink-0"></span><span><strong class="text-emerald-700">80% – 120%:</strong> faixa ideal.</span></div>
+                  <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-purple-500 shrink-0"></span><span><strong class="text-purple-700">Acima de 120%:</strong> acima do teto — avaliar progressão.</span></div>
+                </div>
+              </li>
+              <li>
+                <span class="font-semibold text-blue-700 text-sm block mb-1">Níveis Estratégicos</span>
+                <div class="space-y-1 mt-1">
+                  <div><strong>Estratégico:</strong> Grades 12 e acima</div>
+                  <div><strong>Tático:</strong> Grades 7 a 11</div>
+                  <div><strong>Operacional:</strong> Grades abaixo de 7</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="section-block">
+          <h3 class="font-bold text-slate-900 mb-4">Classificação de Performance (Retenção)</h3>
+          <p class="text-xs text-slate-500 mb-4">Mapeamento das categorias de CATEGORIA_PERFORMANCE da base para os grupos de análise:</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+              <div class="font-bold text-emerald-700 text-sm mb-2">Alta Performance</div>
+              <ul class="text-xs text-emerald-800 space-y-1">
+                <li>É uma referência</li><li>Alta contribuição</li><li>Supera as expectativas</li>
+              </ul>
+            </div>
+            <div class="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+              <div class="font-bold text-amber-700 text-sm mb-2">Média Performance</div>
+              <ul class="text-xs text-amber-800 space-y-1">
+                <li>Cumpre plenamente</li><li>Contribuição Esperada</li>
+              </ul>
+            </div>
+            <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl">
+              <div class="font-bold text-rose-700 text-sm mb-2">Baixa Performance</div>
+              <ul class="text-xs text-rose-800 space-y-1">
+                <li>Cumpre parcialmente</li><li>Não cumpre</li><li>Baixa contribuição</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- max-w -->
+  </div><!-- dash-scroll -->
+  <footer class="app-footer">Desenvolvido por <strong>Vinicius Carlos</strong> · HRBP Negócios<a href="hub.html" style="color:inherit;text-decoration:underline">Hub</a></footer>
+</div><!-- app-shell -->
+
+<script>
+// ════════════════════════════════════════════════════════
+// STATE & CONSTANTS
+// ════════════════════════════════════════════════════════
+const S={
+  raw:{ativos:[],deslig:[]},
+  filt:{ativos:[],deslig:[]},
+  filters:{hrbp:[],area:[],orgUnit:[],pais:[],site:[],grade:[],ceco:[],n3:[],mes:[]},
+  retFilter:'ALL', compFilter:'ALL',
+  activeTab:'exec', dirty:new Set(), charts:{}
+};
+const C={orange:'#105FA2',indigo:'#0B2838',green:'#AABF3E',red:'#7D2D2D',purple:'#778689',amber:'#B27A59',teal:'#105FA2',slate:'#778689'};
+const RENDERS={exec:renderExec,adm:renderAdm,comp:renderComp,ret:renderRet,gloss:()=>{}};
+
+// ════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════
+const clean=v=>{if(v==null)return '';const s=String(v).trim();return['NAN','UNDEFINED','-','N/A'].includes(s.toUpperCase())?'':s;};
+const fmtDate=v=>{if(!v)return '';try{const d=new Date(v);if(isNaN(d))return '';return d.toISOString().slice(0,7);}catch{return '';}};
+const fmtDateBR=v=>{if(!v)return '-';try{return new Date(v).toLocaleDateString('pt-BR',{timeZone:'UTC'});}catch{return '-';}};
+const tenure=(adm,ref=new Date())=>{if(!adm)return null;const a=new Date(adm);if(isNaN(a))return null;return(ref-a)/(365.25*24*3600*1000);};
+const median=arr=>{if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const tenureFmt=y=>y==null?'-':y<1?Math.round(y*12)+'m':y.toFixed(1)+'a';
+const crBand=v=>{const n=parseFloat(v);if(isNaN(n))return null;return n<0.8?'low':n<=1.2?'mid':'high';};
+const crCat=v=>{const b=crBand(v);return b==='low'?'Abaixo 80%':b==='mid'?'80–120%':b==='high'?'Acima 120%':'S/D';};
+const crColor=v=>{const b=crBand(v);return b==='low'?C.red:b==='high'?C.purple:C.green;};
+// TIPO_DESLIG: 'VOLUNTÁRIO' e 'INVOLUNTÁRIO' (com acentos, uppercase)
+const isVol=r=>{const v=String(r.tipoDeslig||'').toUpperCase();return v.includes('VOLUNT')&&!v.includes('INVOLUNT');};
+const isInv=r=>String(r.tipoDeslig||'').toUpperCase().includes('INVOLUNT');
+const isYes=v=>['SIM','YES','S'].includes(String(v||'').toUpperCase().trim());
+const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.innerText=v;};
+const countBy=(arr,k)=>arr.reduce((m,r)=>(m[r[k]]=(m[r[k]]||0)+1,m),{});
+function markLoaded(id){document.getElementById(id).classList.add('loaded');}
+
+// Performance mapping: Alta / Média / Baixa / Não avaliado
+function perfCat(cat){
+  const v=String(cat||'').toLowerCase().trim();
+  if(['é uma referência','alta contribuição','supera as expectativas'].some(x=>v.includes(x.split(' ')[0])&&v.length>0)) return 'Alta';
+  if(['cumpre plenamente','contribuição esperada'].some(x=>v.includes('plenamente')||v.includes('esperada'))) return 'Média';
+  if(['cumpre parcialmente','não cumpre','baixa'].some(x=>v.includes('parcialmente')||v.includes('não cumpre')||v.includes('baixa'))) return 'Baixa';
+  if(v.includes('não avaliado')||v==='') return 'Não avaliado';
+  return 'Não avaliado';
+}
+
+// ════════════════════════════════════════════════════════
+// FILE LOAD
+// ════════════════════════════════════════════════════════
+async function loadFile(){
+  const f=document.getElementById('file-po').files[0];
+  if(!f){alert('Selecione o arquivo.');return;}
+  document.getElementById('btn-txt').innerText='Lendo...';
+  document.getElementById('btn-ico').classList.add('hidden');
+  document.getElementById('btn-spin').classList.remove('hidden');
+  try{
+    const ab=await f.arrayBuffer();
+    const wb=XLSX.read(ab,{type:'array',cellDates:true});
+    const get=name=>{const key=wb.SheetNames.find(n=>n.trim().toUpperCase()===name.toUpperCase());return key?XLSX.utils.sheet_to_json(wb.Sheets[key],{defval:''}):[]; };
+    S.raw.ativos=get('Ativos').map(r=>({
+      mes:fmtDate(r['MÊS']),pais:clean(r['PAIS']),orgUnit:clean(r['ORG_UNIT']),
+      id:clean(r['ID']),nome:clean(r['DISPLAY_NAME']),cargo:clean(r['CARGO']),
+      level:clean(r['LEVEL']),dataAdm:r['DATA_ADM']||null,
+      lider:clean(r['LIDER_DIRETO']),comparatio:parseFloat(r['COMPARATIO'])||null,
+      grade:parseFloat(r['GRADE'])||null,site:clean(r['SITE']),
+      ceco:clean(r['CECO']),n3:clean(r['N3']),area:clean(r['AREA']),hrbp:clean(r['HRBP'])
+    })).filter(r=>r.nome);
+    S.raw.deslig=get('Desligados').map(r=>({
+      hrbp:clean(r['HRBP']),orgUnit:clean(r['ORG_UNIT']),pais:clean(r['PAIS']),
+      dataAdm:r['DATA_ADM']||null,dataDeslig:r['DATA_DESLIG']||null,
+      id:clean(r['ID']),nome:clean(r['DISPLAY_NAME']),cargo:clean(r['CARGO']),
+      lider:clean(r['LIDER _DIRETO']||r['LIDER_DIRETO']),
+      n3:clean(r['N3']),level:clean(r['LEVEL']),
+      grade:parseFloat(r['GRADE'])||null,ceco:clean(r['CECO']),
+      area:clean(r['AREA']),site:clean(r['SITE']),
+      notaPerf:parseFloat(r['NOTA_PERFORMANCE'])||null,
+      catPerf:clean(r['CATEGORIA_PERFORMANCE']),
+      comparatio:parseFloat(r['COMPARATIO'])||null,
+      criticalTalent:clean(r['CRITICAL_TALENT']),
+      tipoDeslig:clean(r['TIPO_DESLIG']),
+      motivoDeslig:clean(r['MOTIVO_DESLIG'])
+    })).filter(r=>r.nome);
+    if(!S.raw.ativos.length)throw new Error('Aba Ativos vazia.');
+    document.getElementById('splash').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    initFilters();
+  }catch(e){alert('Erro: '+e.message);console.error(e);}
+  finally{
+    document.getElementById('btn-txt').innerText='Acessar Dashboard';
+    document.getElementById('btn-ico').classList.remove('hidden');
+    document.getElementById('btn-spin').classList.add('hidden');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// FILTERS
+// ════════════════════════════════════════════════════════
+let _ft=null;
+const dbn=(fn,ms=350)=>{clearTimeout(_ft);_ft=setTimeout(fn,ms);};
+
+function initFilters(){
+  const keys=[['HRBP','hrbp'],['ÁREA','area'],['ORG UNIT','orgUnit'],['PAÍS','pais'],['SITE','site'],['GRADE','grade'],['CECO','ceco'],['N3','n3']];
+  const bar=document.getElementById('filter-bar');bar.innerHTML='';
+  keys.forEach(([lbl,k])=>{
+    const w=document.createElement('div');w.className='relative';
+    const b=document.createElement('button');b.className='filter-pill';b.id='btn-'+k;
+    b.innerHTML=`<span>${lbl}: <span id="lbl-${k}" class="font-normal text-xs ml-1">Todos</span></span><i class="ph ph-caret-down"></i>`;
+    b.onclick=e=>{e.stopPropagation();toggleDD(k);};
+    const dd=document.createElement('div');dd.className='dropdown-menu';dd.id='dd-'+k;dd.onclick=e=>e.stopPropagation();
+    w.appendChild(b);w.appendChild(dd);bar.appendChild(w);
+  });
+  const clr=document.createElement('button');
+  clr.className='text-[10px] text-orange-700 font-semibold hover:bg-orange-50 px-3 py-1 rounded ml-auto transition';
+  clr.innerHTML='LIMPAR';clr.onclick=()=>{
+    Object.keys(S.filters).forEach(k=>S.filters[k]=[]);
+    // Reconstrói dropdown de mês com todos desmarcados (mes=[] = todos)
+    const ms=[...new Set(S.raw.ativos.map(r=>r.mes))].filter(Boolean).sort().reverse();
+    buildMesDD(ms); updateMesLabel();
+    // Atualiza labels dos filtros de dimensão
+    ['hrbp','area','orgUnit','pais','site','grade','ceco','n3'].forEach(k=>{
+      const el=document.getElementById('lbl-'+k); if(el) el.innerText='Todos';
+      const btn=document.getElementById('btn-'+k); if(btn) btn.classList.remove('active');
+    });
+    dbn(applyFilters);
+  };
+  bar.appendChild(clr);
+  const months=[...new Set(S.raw.ativos.map(r=>r.mes))].filter(Boolean).sort().reverse();
+  S.filters.mes=months.length?[months[0]]:[];
+  buildMesDD(months);
+  const mw=document.getElementById('mes-wrap');if(mw)mw.style.display='';
+  updateMesLabel();
+  window.onclick=()=>document.querySelectorAll('.dropdown-menu').forEach(d=>d.classList.remove('show'));
+  applyFilters();
+}
+
+function buildMesDD(months){
+  const dd=document.getElementById('dd-mes');if(!dd)return;
+  dd.innerHTML='<div class="p-2 border-b mb-1 text-xs font-semibold text-orange-700 cursor-pointer hover:bg-slate-50 rounded" onclick="toggleAllMes('+months.length+')">Selecionar Todos</div>'+
+    months.map(m=>`<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs rounded"><input type="checkbox" class="accent-orange-600" ${S.filters.mes.includes(m)?'checked':''} onchange="handleMesSel('${m}',this.checked)"> ${m}</label>`).join('');
+}
+
+function getCascOpts(tgt){
+  const col={hrbp:'hrbp',area:'area',orgUnit:'orgUnit',pais:'pais',site:'site',grade:'grade',ceco:'ceco',n3:'n3'};
+  let d=[...S.raw.ativos,...S.raw.deslig];
+  Object.keys(col).forEach(k=>{if(k!==tgt&&S.filters[k].length) d=d.filter(r=>S.filters[k].includes(String(r[col[k]])));});
+  if(S.filters.mes.length) d=d.filter(r=>S.filters.mes.includes(r.mes||fmtDate(r.dataDeslig)));
+  let opts=[...new Set(d.map(r=>r[col[tgt]]).filter(Boolean))];
+  if(tgt==='grade') opts.sort((a,b)=>parseFloat(a)-parseFloat(b));
+  else opts.sort();
+  return opts.map(String);
+}
+
+function toggleDD(key){
+  document.querySelectorAll('.dropdown-menu').forEach(d=>{if(d.id!=='dd-'+key)d.classList.remove('show');});
+  const dd=document.getElementById('dd-'+key);
+  const opts=getCascOpts(key);
+  dd.innerHTML=`<div class="p-2 border-b mb-1 text-xs font-semibold text-orange-700 cursor-pointer hover:bg-slate-50 rounded" onclick="toggleAll('${key}',${opts.length})">Selecionar Todos</div>`;
+  opts.forEach(v=>{const safe=String(v).replace(/'/g,"\\'");dd.innerHTML+=`<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs rounded"><input type="checkbox" class="accent-orange-600" ${S.filters[key].includes(v)?'checked':''} onchange="handleSel('${key}','${safe}',this.checked)"> ${v}</label>`;});
+  dd.classList.toggle('show');
+}
+function toggleAll(k,total){const o=getCascOpts(k);S.filters[k]=(S.filters[k].length===total&&total>0)?[]:o;dbn(applyFilters);}
+function handleSel(k,v,c){if(c)S.filters[k].push(v);else S.filters[k]=S.filters[k].filter(x=>x!==v);dbn(applyFilters);}
+function toggleMes(e){e.stopPropagation();document.getElementById('dd-mes').classList.toggle('show');}
+function toggleAllMes(total){
+  const ms=[...new Set(S.raw.ativos.map(r=>r.mes))].filter(Boolean).sort().reverse();
+  // Se já tem todos selecionados ou mes=[] → desmarca tudo (mes=[])
+  const allSelected=S.filters.mes.length===0||S.filters.mes.length===total;
+  S.filters.mes=allSelected?[...ms]:[];
+  updateMesLabel(); buildMesDD(ms); dbn(applyFilters);
+}
+function handleMesSel(m,c){if(c)S.filters.mes.push(m);else S.filters.mes=S.filters.mes.filter(x=>x!==m);updateMesLabel();dbn(applyFilters);}
+function updateMesLabel(){const el=document.getElementById('lbl-mes');if(!el)return;const n=S.filters.mes.length;el.innerText=n===0?'Todos':n===1?S.filters.mes[0]:`(${n})`;}
+
+function applyFilters(){
+  const f=S.filters;
+  const chk=(r,useMes=true)=>{
+    if(f.hrbp.length&&!f.hrbp.includes(r.hrbp))return false;
+    if(f.area.length&&!f.area.includes(r.area))return false;
+    if(f.orgUnit.length&&!f.orgUnit.includes(r.orgUnit))return false;
+    if(f.pais.length&&!f.pais.includes(r.pais))return false;
+    if(f.site.length&&!f.site.includes(r.site))return false;
+    if(f.grade.length&&!f.grade.includes(String(r.grade)))return false;
+    if(f.ceco.length&&!f.ceco.includes(r.ceco))return false;
+    if(f.n3.length&&!f.n3.includes(r.n3))return false;
+    return true;
+  };
+  S.filt.ativos=S.raw.ativos.filter(r=>{
+    if(!chk(r))return false;
+    if(f.mes.length&&!f.mes.includes(r.mes))return false;
+    return true;
+  });
+  S.filt.deslig=S.raw.deslig.filter(r=>{
+    if(!chk(r))return false;
+    if(f.mes.length&&!f.mes.includes(fmtDate(r.dataDeslig)))return false;
+    return true;
+  });
+  ['hrbp','area','orgUnit','pais','site','grade','ceco','n3'].forEach(k=>{
+    const el=document.getElementById('lbl-'+k),btn=document.getElementById('btn-'+k);if(!el||!btn)return;
+    const n=f[k].length;el.innerText=n===0?'Todos':n===1?f[k][0]:`(${n})`;btn.classList.toggle('active',n>0);
+  });
+  if(RENDERS[S.activeTab])RENDERS[S.activeTab]();
+  Object.keys(RENDERS).forEach(t=>{if(t!==S.activeTab)S.dirty.add(t);});
+}
+
+function goTab(id){
+  document.querySelectorAll('.view-section').forEach(e=>e.classList.add('hidden'));
+  document.getElementById('view-'+id).classList.remove('hidden');
+  document.querySelectorAll('.tab-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('nav-'+id).classList.add('active');
+  S.activeTab=id;
+  if(S.dirty.has(id)&&RENDERS[id]){RENDERS[id]();S.dirty.delete(id);}
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ════════════════════════════════════════════════════════
+// CHART HELPERS
+// ════════════════════════════════════════════════════════
+Chart.defaults.font.family="'Inter',sans-serif";Chart.defaults.color='#778689';
+function mkChart(id,type,labels,data,colors,opts={}){
+  const ctx=document.getElementById(id);if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  const isMulti=Array.isArray(data)&&typeof data[0]==='object'&&data[0]!==null&&'data' in data[0];
+  S.charts[id]=new Chart(ctx,{
+    type,
+    data:{
+      labels,
+      datasets:isMulti?data:[{
+        data,backgroundColor:Array.isArray(colors)?colors:colors,
+        borderColor:type==='line'?colors:'white',
+        borderWidth:type==='line'?2:1.5,
+        fill:opts.fill||false,tension:opts.tension||0,
+        borderRadius:type==='bar'?4:0,
+        pointBackgroundColor:colors,pointRadius:type==='line'?4:0
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,indexAxis:opts.axis||'x',
+      cutout:opts.cutout||undefined,
+      plugins:{
+        legend:{display:opts.legend??(type==='doughnut'||isMulti),position:'bottom',labels:{font:{size:11},boxWidth:10}},
+        datalabels:{
+          display:opts.datalabels??true,
+          color:type==='doughnut'?'#fff':opts.dlColor||'#0B2838',
+          font:{weight:'bold',size:10},
+          anchor:type==='doughnut'?'center':'end',align:type==='doughnut'?'center':'end',
+          formatter:opts.formatter||(type==='doughnut'?(v,ctx)=>{
+            const t=ctx.dataset.data.reduce((a,b)=>a+b,0)||1;
+            const p=Math.round(v/t*100);
+            return p>=5?`${v}\n${p}%`:'';
+          }:null)
+        },
+        tooltip:{backgroundColor:'rgba(15,23,42,.95)',titleColor:'#F4F6F5',bodyColor:'#B4BFBE',padding:10,cornerRadius:6}
+      },
+      scales:type==='doughnut'||type==='pie'?{}:{
+        x:{grid:{display:opts.axis==='y'},border:{display:false}},
+        y:{grid:{color:'#EAECEC',display:opts.axis!=='y'},border:{display:false},beginAtZero:true,...(opts.yRange||{})}
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function mkScatter(id,pts){
+  const ctx=document.getElementById(id);if(!ctx)return;
+  if(S.charts[id])S.charts[id].destroy();
+  S.charts[id]=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[{data:pts,backgroundColor:pts.map(p=>p.color+'BB'),pointRadius:5,pointHoverRadius:7}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},datalabels:{display:false},
+        tooltip:{backgroundColor:'rgba(15,23,42,.95)',titleColor:'#F4F6F5',bodyColor:'#B4BFBE',padding:10,cornerRadius:6,
+          callbacks:{title:i=>[pts[i[0].dataIndex].nome||''],label:i=>`Tenure: ${i.raw.x.toFixed(1)}a · CR: ${(i.raw.y*100).toFixed(0)}%`}}
+      },
+      scales:{
+        x:{title:{display:true,text:'Tempo de Casa (anos)',font:{size:10}},grid:{color:'#EAECEC'},border:{display:false},min:0},
+        y:{title:{display:true,text:'Compa-Ratio',font:{size:10}},grid:{color:'#EAECEC'},border:{display:false},ticks:{callback:v=>(v*100).toFixed(0)+'%'}}
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+// Heatmap Grade × Faixa
+function renderHeatmap(data){
+  const el=document.getElementById('comp-heatmap');
+  if(!el) return;
+  const bands=['< 80%','80 – 120%','> 120%'];
+  const bandColors=['#7D2D2D','#AABF3E','#778689'];
+  const getBand=v=>{if(v<0.8)return 0;if(v<=1.2)return 1;return 2;};
+  const grades=[...new Set(data.map(r=>r.grade).filter(v=>v!==null&&v!==undefined&&!isNaN(parseFloat(v))))].map(Number).sort((a,b)=>b-a);
+  if(!grades.length){el.innerHTML='<p class="text-xs text-slate-400 p-4 text-center">Sem dados de Compa-Ratio</p>';return;}
+  const matrix={};
+  grades.forEach(g=>{matrix[g]=[0,0,0];});
+  data.forEach(r=>{
+    const g=parseFloat(r.grade), c=parseFloat(r.comparatio);
+    if(isNaN(g)||isNaN(c)||c>3)return;
+    matrix[g][getBand(c)]++;
+  });
+  const maxRow=Math.max(...grades.map(g=>matrix[g].reduce((s,v)=>s+v,0)),1);
+  let html='<table style="width:100%;border-collapse:separate;border-spacing:2px 2px">';
+  html+='<thead><tr>';
+  html+='<th style="padding:5px 10px;text-align:left;color:#778689;font-size:.7rem;font-weight:700">Grade</th>';
+  bands.forEach((b,bi)=>{html+=`<th style="padding:5px 10px;text-align:center;color:${bandColors[bi]};font-size:.7rem;font-weight:700">${b}</th>`;});
+  html+='<th style="padding:5px 10px;text-align:center;color:#0B2838;font-size:.7rem;font-weight:700">Total</th>';
+  html+='</tr></thead><tbody>';
+  grades.forEach(g=>{
+    const row=matrix[g], tot=row.reduce((s,v)=>s+v,0);
+    html+=`<tr>`;
+    html+=`<td style="padding:5px 10px;font-weight:700;color:#0B2838;font-size:.75rem">G${g}</td>`;
+    row.forEach((n,bi)=>{
+      const pct=tot>0?n/tot:0;
+      const alpha=n>0?Math.max(0.12,pct*0.85):0;
+      const bg=n>0?`rgba(${bi===0?'220,38,38':bi===1?'5,150,105':'124,58,237'},${alpha.toFixed(2)})` :'#F4F6F5';
+      const fg=n>0&&pct>0.4?'#fff':n>0?'#0B2838':'#B4BFBE';
+      const sub=tot>1&&n>0?` (${Math.round(pct*100)}%)`:'';
+      html+=`<td style="padding:5px 8px;text-align:center;background:${bg};color:${fg};font-weight:${n>0?700:400};border-radius:4px;font-size:.72rem">${n>0?n+sub:''}</td>`;
+    });
+    html+=`<td style="padding:5px 8px;text-align:center;background:#EBF5FA;color:#0B2838;font-weight:700;font-size:.72rem;border-radius:4px">${tot}</td>`;
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+// Comp bands por área
+function renderCompBands(data){
+  const el=document.getElementById('comp-bands');if(!el)return;el.innerHTML='';
+  const aMap={};
+  data.forEach(r=>{if(r.comparatio===null||r.comparatio>3)return;const k=r.area||'N/A';if(!aMap[k])aMap[k]={low:0,mid:0,high:0};const b=crBand(r.comparatio);if(b)aMap[k][b]++;});
+  const max=Math.max(...Object.values(aMap).map(v=>v.low+v.mid+v.high),1);
+  Object.entries(aMap).sort((a,b)=>(b[1].low+b[1].mid+b[1].high)-(a[1].low+a[1].mid+a[1].high)).forEach(([name,v])=>{
+    const tot=v.low+v.mid+v.high||1;const w=Math.round(tot/max*100);
+    const lp=Math.round(v.low/tot*100),mp=Math.round(v.mid/tot*100),hp=Math.round(v.high/tot*100);
+    el.innerHTML+=`<div><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-700 truncate">${name}</span><span class="text-slate-400 ml-2">${tot}</span></div><div style="height:16px;display:flex;border-radius:4px;overflow:hidden;max-width:${w}%">${v.low?`<div style="width:${lp}%;background:${C.red}"></div>`:''  }${v.mid?`<div style="width:${mp}%;background:${C.green}"></div>`:''  }${v.high?`<div style="width:${hp}%;background:${C.purple}"></div>`:''  }</div></div>`;
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER EXECUTIVA
+// ════════════════════════════════════════════════════════
+function renderAlerts(turn, crCounts, total){
+  const el=document.getElementById('exec-alerts'); if(!el) return;
+  const alerts=[];
+  const crLowPct=total?(crCounts.low/total*100):0;
+  if(turn>10) alerts.push({lvl:'critical',icon:'ph-warning-octagon',txt:`Turnover em <strong>${turn.toFixed(1)}%</strong> — acima de 10%. Revisar causas no módulo de Retenção.`});
+  else if(turn>5) alerts.push({lvl:'warning',icon:'ph-warning',txt:`Turnover em <strong>${turn.toFixed(1)}%</strong> — entre 5% e 10%. Monitorar evolução.`});
+  if(crLowPct>25) alerts.push({lvl:'warning',icon:'ph-currency-circle-dollar',txt:`<strong>${crCounts.low} colaboradores (${crLowPct.toFixed(0)}%)</strong> com Compa-Ratio abaixo de 80%. Risco salarial.`});
+  const cols={critical:{bg:'#FAF0F0',bdr:'#E8A0A0',ic:'#7D2D2D',tx:'#5C1F1F'},warning:{bg:'#FBF5EE',bdr:'#E8C8A8',ic:'#B27A59',tx:'#6B4030'}};
+  el.innerHTML=alerts.map(a=>`<div style="background:${cols[a.lvl].bg};border:1px solid ${cols[a.lvl].bdr};border-radius:10px;padding:.75rem 1rem;display:flex;align-items:flex-start;gap:10px"><i class="ph-fill ${a.icon}" style="color:${cols[a.lvl].ic};font-size:1.1rem;margin-top:1px;flex-shrink:0"></i><p style="font-size:.78rem;color:${cols[a.lvl].tx};line-height:1.5">${a.txt}</p></div>`).join('');
+}
+
+function renderExec(){
+  const d=S.filt.ativos, ds=S.filt.deslig;
+  const months=[...new Set(d.map(r=>r.mes))].filter(Boolean).sort();
+  const lastM=months[months.length-1]||'';
+  const lastD=d.filter(r=>r.mes===lastM);
+  // HC Médio
+  const hcMed=months.length?d.length/months.length:0;
+  setV('e-hc',Math.round(hcMed)); setV('e-hc-s',`Média — último mês: ${lastD.length}`);
+  // Turnover: (Total Desligados / HC Médio) * 100
+  const turn=hcMed>0?(ds.length/hcMed*100):0;
+  setV('e-turn',turn.toFixed(1)+'%'); setV('e-turn-s',`${ds.length} deslig. / HC Médio ${Math.round(hcMed)}`);
+  // Tenure: Mediana + Média
+  const tenures=lastD.map(r=>tenure(r.dataAdm)).filter(v=>v!==null&&v>=0&&v<50).sort((a,b)=>a-b);
+  const med=tenures.length?tenures[Math.floor(tenures.length/2)]:0;
+  const avg=tenures.length?(tenures.reduce((a,b)=>a+b,0)/tenures.length):0;
+  setV('e-tenure-med','Mediana '+med.toFixed(1)+'a'); setV('e-tenure-sub','Média '+avg.toFixed(1)+'a');
+  // Span of Control
+  const lideres=new Set(lastD.map(r=>r.lider).filter(Boolean));
+  const span=lideres.size?Math.round(lastD.length/lideres.size):0;
+  setV('e-span',span); setV('e-span-s',`${lideres.size} líderes únicos`);
+  // Evolução HC — últimos 12 meses (usa raw filtrado por dimensão, não por mês)
+  const rawDimFilt=S.raw.ativos.filter(r=>{
+    const f=S.filters;
+    if(f.hrbp.length&&!f.hrbp.includes(r.hrbp))return false;
+    if(f.area.length&&!f.area.includes(r.area))return false;
+    if(f.orgUnit.length&&!f.orgUnit.includes(r.orgUnit))return false;
+    if(f.pais.length&&!f.pais.includes(r.pais))return false;
+    if(f.site.length&&!f.site.includes(r.site))return false;
+    if(f.grade.length&&!f.grade.includes(String(r.grade)))return false;
+    if(f.ceco.length&&!f.ceco.includes(r.ceco))return false;
+    if(f.n3.length&&!f.n3.includes(r.n3))return false;
+    return true;
+  });
+  const evoMap={}; rawDimFilt.forEach(r=>{if(r.mes) evoMap[r.mes]=(evoMap[r.mes]||0)+1;});
+  const evoKeys=Object.keys(evoMap).sort().slice(-12);
+  const evoVals=evoKeys.map(k=>evoMap[k]);
+  if(S.charts['ch-hc-evo']) S.charts['ch-hc-evo'].destroy();
+  const ctxEvo=document.getElementById('ch-hc-evo'); if(ctxEvo){
+    S.charts['ch-hc-evo']=new Chart(ctxEvo,{
+      type:'line',
+      data:{labels:evoKeys,datasets:[{data:evoVals,borderColor:'#0B2838',backgroundColor:'rgba(30,58,138,.08)',borderWidth:2.5,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#0B2838'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{color:'#0B2838',font:{weight:'bold',size:10},anchor:'end',align:'end'},tooltip:{backgroundColor:'rgba(15,23,42,.95)',titleColor:'#F4F6F5',bodyColor:'#B4BFBE',padding:10,cornerRadius:6}},
+        scales:{x:{grid:{display:false},border:{display:false}},y:{grid:{color:'#EAECEC'},border:{display:false},beginAtZero:false,max:5000,ticks:{stepSize:1000}}}},
+      plugins:[ChartDataLabels]
+    });
+  }
+  // Compa-Ratio: gráfico de coluna (3 faixas)
+  const crD=lastD.filter(r=>r.comparatio!==null&&r.comparatio<=3);
+  const crLow=crD.filter(r=>crBand(r.comparatio)==='low').length;
+  const crMid=crD.filter(r=>crBand(r.comparatio)==='mid').length;
+  const crHigh=crD.filter(r=>crBand(r.comparatio)==='high').length;
+  const crTot=crD.length||1;
+  mkChart('ch-cr-exec','bar',['Abaixo 80%','80% – 120%','Acima 120%'],[crLow,crMid,crHigh],['#7D2D2D','#AABF3E','#778689'],{formatter:v=>`${v} (${Math.round(v/crTot*100)}%)`});
+  // Distribuição por Nível Estratégico
+  const gradeMap={Estratégico:0,Tático:0,Operacional:0};
+  lastD.forEach(r=>{
+    const g=parseFloat(r.grade)||0;
+    if(g>=12) gradeMap['Estratégico']++;
+    else if(g>=7) gradeMap['Tático']++;
+    else gradeMap['Operacional']++;
+  });
+  mkChart('ch-nivel','bar',Object.keys(gradeMap),Object.values(gradeMap),['#0B2838','#105FA2','#AABF3E'],{formatter:(v,ctx)=>{const t=Object.values(gradeMap).reduce((a,b)=>a+b,0)||1;return `${v} (${Math.round(v/t*100)}%)`;}});
+  // ── Novos cards executivos ──────────────────────────────────
+  // 1. Total de Admitidos (sem duplicatas — unique por ID com menor dataAdm)
+  const idMapAdm = new Map();
+  S.raw.ativos.filter(r => {
+    if(S.filters.hrbp.length && !S.filters.hrbp.includes(r.hrbp)) return false;
+    if(S.filters.area.length && !S.filters.area.includes(r.area)) return false;
+    if(S.filters.orgUnit.length && !S.filters.orgUnit.includes(r.orgUnit)) return false;
+    if(S.filters.pais.length && !S.filters.pais.includes(r.pais)) return false;
+    if(S.filters.site.length && !S.filters.site.includes(r.site)) return false;
+    if(S.filters.grade.length && !S.filters.grade.includes(String(r.grade))) return false;
+    return true;
+  }).forEach(r => {
+    if(!r.dataAdm) return;
+    const ex = idMapAdm.get(r.id);
+    if(!ex || new Date(r.dataAdm) < new Date(ex.dataAdm)) idMapAdm.set(r.id, r);
+  });
+  const baseMonths = [...new Set(S.filt.ativos.map(r=>r.mes))].filter(Boolean).sort();
+  const admNoP = [...idMapAdm.values()].filter(r => {
+    const m = fmtDate(r.dataAdm);
+    return m >= (baseMonths[0]||'') && m <= (baseMonths[baseMonths.length-1]||'');
+  });
+  setV('enc-adm-total', admNoP.length);
+  setV('enc-adm-sub', `${baseMonths[0]||'—'} a ${baseMonths[baseMonths.length-1]||'—'}`);
+
+  // 2. Tipo de Saída
+  const dsAll = S.filt.deslig;
+  const volN = dsAll.filter(r => { const v=String(r.tipoDeslig||'').toUpperCase(); return v.includes('VOLUNT')&&!v.includes('INVOLUNT'); }).length;
+  const invN = dsAll.filter(r => String(r.tipoDeslig||'').toUpperCase().includes('INVOLUNT')).length;
+  const dsTot = dsAll.length || 1;
+  setV('enc-saida-total', dsAll.length + ' desligamentos');
+  const saidaEl = document.getElementById('enc-saida-breakdown');
+  if(saidaEl) saidaEl.innerHTML = [
+    { label:'Voluntário', n:volN, cor:'#B27A59' },
+    { label:'Involuntário', n:invN, cor:'#778689' }
+  ].map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem">
+    <span style="color:#5A6B6D">${x.label}</span>
+    <span style="font-weight:700;color:${x.cor}">${x.n} <span style="font-weight:400;color:#A0B0B0">(${dsTot>0?Math.round(x.n/dsTot*100):0}%)</span></span>
+  </div>`).join('');
+
+  // 3. Aderência à Faixa
+  const crEl = document.getElementById('enc-cr-breakdown');
+  if(crEl) {
+    const crData = [
+      { label:'Abaixo de 80%',     n:crLow,  cor:'#7D2D2D', bg:'#FAF0F0' },
+      { label:'Faixa Ideal 80–120%',n:crMid, cor:'#5A6E00', bg:'#F5F9E8' },
+      { label:'Acima de 120%',      n:crHigh, cor:'#4A5C5E', bg:'#EAEEEE' }
+    ];
+    const crTot = (crLow+crMid+crHigh) || 1;
+    crEl.innerHTML = crData.map(x=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;background:${x.bg};border-radius:7px;padding:.4rem .7rem">
+        <span style="font-size:.72rem;color:#5A6B6D">${x.label}</span>
+        <span style="font-size:.85rem;font-weight:700;color:${x.cor}">${x.n} <span style="font-weight:400;font-size:.68rem">(${Math.round(x.n/crTot*100)}%)</span></span>
+      </div>`).join('');
+  }
+
+  // Alertas
+  renderAlerts(turn,{low:crLow,mid:crMid,high:crHigh},crD.length);
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER ADMITIDOS — deduplicação robusta
+// ════════════════════════════════════════════════════════
+function renderAdm(){
+  // Deduplicação: para cada ID, mantém só a linha com menor DATA_ADM (data real de entrada)
+  const allAtivos = S.filt.ativos;
+  const byId = {};
+  allAtivos.forEach(r => {
+    if(!r.id) return;
+    if(!byId[r.id] || new Date(r.dataAdm) < new Date(byId[r.id].dataAdm)) byId[r.id] = r;
+  });
+  // Admitidos: IDs cuja DATA_ADM cai dentro dos meses selecionados
+  const mesRange = S.filters.mes.length ? S.filters.mes : [...new Set(allAtivos.map(r=>r.mes))].filter(Boolean);
+  const adm = Object.values(byId).filter(r => mesRange.includes(fmtDate(r.dataAdm)));
+  setV('a-total', adm.length);
+  setV('a-total-s', `${mesRange.length} mês(es) selecionado(s)`);
+  // Top área
+  const areaMap = countBy(adm, 'area');
+  const topArea = Object.entries(areaMap).sort((a,b)=>b[1]-a[1])[0];
+  if(topArea){ setV('a-top-area', topArea[0]); setV('a-top-area-s', topArea[1]+' admissões'); }
+  // Top level
+  const levMap = countBy(adm, 'level');
+  const topLev = Object.entries(levMap).sort((a,b)=>b[1]-a[1])[0];
+  if(topLev){ setV('a-top-level', topLev[0]); setV('a-top-level-s', topLev[1]+' admissões'); }
+  // Por mês
+  const mesMap = {};
+  adm.forEach(r=>{ const m=fmtDate(r.dataAdm)||r.mes; if(m) mesMap[m]=(mesMap[m]||0)+1; });
+  const mesKeys = Object.keys(mesMap).sort();
+  mkChart('ch-adm-mes','bar',mesKeys,mesKeys.map(k=>mesMap[k]),'#AABF3E');
+  // Por área
+  const aSort = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const tot = aSort.reduce((s,x)=>s+x[1],0)||1;
+  mkChart('ch-adm-area','bar',aSort.map(x=>x[0]),aSort.map(x=>x[1]),C.indigo,{axis:'y',formatter:v=>`${v} (${Math.round(v/tot*100)}%)`,yRange:{max:80}});
+  // Tabela — novas colunas: Mês Ref., Unidade Org., Nome, Cargo, Grade, Data Admissão, Tempo Empresa, HRBP
+  const tb = document.querySelector('#tb-adm tbody'); if(!tb) return; tb.innerHTML='';
+  [...adm].sort((a,b)=>new Date(b.dataAdm)-new Date(a.dataAdm)).forEach(r=>{
+    const t = tenure(r.dataAdm);
+    tb.innerHTML+=`<tr>
+      <td class="text-xs">${fmtDate(r.dataAdm)||r.mes}</td>
+      <td class="text-xs">${r.orgUnit||'-'}</td>
+      <td class="font-medium text-slate-900">${r.nome}</td>
+      <td class="text-xs">${r.cargo}</td>
+      <td class="text-center text-xs">${r.grade}</td>
+      <td class="text-xs">${fmtDateBR(r.dataAdm)}</td>
+      <td class="text-xs">${tenureFmt(t)}</td>
+      <td class="text-xs">${r.hrbp}</td>
+    </tr>`;
+  });
+  if(!tb.innerHTML) tb.innerHTML='<tr><td colspan="8" class="text-center text-slate-400 py-3">Sem admissões no período</td></tr>';
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER COMPENSAÇÃO
+// ════════════════════════════════════════════════════════
+function setCompFilter(f){
+  S.compFilter=f;
+  ['ALL','low','mid','high'].forEach(x=>{const el=document.getElementById('cb-'+x);if(el)el.classList.remove('active');});
+  const el=document.getElementById('cb-'+f);if(el)el.classList.add('active');
+  renderCompTable();
+}
+
+function renderComp(){
+  const months=[...new Set(S.filt.ativos.map(r=>r.mes))].filter(Boolean).sort();
+  const lastM=months[months.length-1]||'';
+  const curr=S.filt.ativos.filter(r=>r.mes===lastM&&r.comparatio!==null&&r.comparatio<=3);
+  const low=curr.filter(r=>crBand(r.comparatio)==='low').length;
+  const mid=curr.filter(r=>crBand(r.comparatio)==='mid').length;
+  const high=curr.filter(r=>crBand(r.comparatio)==='high').length;
+  const tot=curr.length||1;
+  // Média
+  const med=curr.length?(curr.reduce((s,r)=>s+r.comparatio,0)/curr.length):0;
+  setV('c-med',med?(med*100).toFixed(1)+'%':'-');
+  // Card único com 3 faixas
+  const cards=document.getElementById('cr-faixa-cards'); if(cards){
+    cards.innerHTML=`
+      <div style="text-align:center;padding:.5rem .25rem;border-radius:8px;background:#FAF0F0;border:1px solid #FECACA">
+        <div style="font-size:1.4rem;font-weight:800;color:#7D2D2D">${low}</div>
+        <div style="font-size:.65rem;font-weight:600;color:#7D2D2D;margin:2px 0">Abaixo 80%</div>
+        <div style="font-size:.65rem;color:#8A9FA0">${Math.round(low/tot*100)}%</div>
+      </div>
+      <div style="text-align:center;padding:.5rem .25rem;border-radius:8px;background:#F5F9E8;border:1px solid #D4E8A0">
+        <div style="font-size:1.4rem;font-weight:800;color:#5A6E00">${mid}</div>
+        <div style="font-size:.65rem;font-weight:600;color:#5A6E00;margin:2px 0">80% – 120%</div>
+        <div style="font-size:.65rem;color:#8A9FA0">${Math.round(mid/tot*100)}%</div>
+      </div>
+      <div style="text-align:center;padding:.5rem .25rem;border-radius:8px;background:#F2F4F4;border:1px solid #DDE4E4">
+        <div style="font-size:1.4rem;font-weight:800;color:#778689">${high}</div>
+        <div style="font-size:.65rem;font-weight:600;color:#778689;margin:2px 0">Acima 120%</div>
+        <div style="font-size:.65rem;color:#8A9FA0">${Math.round(high/tot*100)}%</div>
+      </div>`;
+  }
+  // Comparatio médio por Grade (coluna)
+  const gradeMap={};
+  curr.forEach(r=>{if(!gradeMap[r.grade])gradeMap[r.grade]={sum:0,count:0}; gradeMap[r.grade].sum+=r.comparatio; gradeMap[r.grade].count++;});
+  const gradeKeys=Object.keys(gradeMap).sort((a,b)=>parseFloat(a)-parseFloat(b));
+  const gradeAvgs=gradeKeys.map(k=>parseFloat((gradeMap[k].sum/gradeMap[k].count*100).toFixed(1)));
+  mkChart('ch-cr-grade','bar',gradeKeys.map(k=>'G'+k),gradeAvgs,gradeAvgs.map(v=>v<80?'#7D2D2D':v>120?'#778689':'#AABF3E'),{formatter:v=>v+'%',yRange:{ticks:{callback:v=>v+'%'}}});
+  // Bandas por área
+  renderCompBands(curr);
+  // Heatmap Grade × Faixa
+  renderHeatmap(curr);
+  // CR por Tenure Bucket
+  const bkt={'0–1a':[],'1–3a':[],'3–5a':[],'>5a':[]};
+  curr.forEach(r=>{const t=tenure(r.dataAdm);if(t===null)return;const b=t<1?'0–1a':t<3?'1–3a':t<5?'3–5a':'>5a';bkt[b].push(r.comparatio);});
+  const bKeys=Object.keys(bkt);
+  const bAvgs=bKeys.map(b=>bkt[b].length?parseFloat((bkt[b].reduce((s,v)=>s+v,0)/bkt[b].length*100).toFixed(1)):null);
+  mkChart('ch-cr-tenure','bar',bKeys,bAvgs,bAvgs.map(v=>v===null?'#8A9FA0':v<80?'#7D2D2D':v>120?'#778689':'#AABF3E'),{formatter:v=>v!==null?v+'%':'N/D',yRange:{ticks:{callback:v=>v+'%'}}});
+  // Scatter Tenure × Comparatio
+  const pts=curr.map(r=>{const t=tenure(r.dataAdm);return t===null?null:{x:parseFloat(t.toFixed(2)),y:r.comparatio,nome:r.nome,color:crColor(r.comparatio)};}).filter(Boolean);
+  mkScatter('ch-cr-scatter',pts);
+  // Tabela (com filtro atual)
+  renderCompTable(curr);
+}
+
+function renderHeatmap(data){
+  const el=document.getElementById('comp-heatmap'); if(!el) return;
+  const grades=[...new Set(data.map(r=>r.grade))].sort((a,b)=>parseFloat(a)-parseFloat(b));
+  const faixas=['< 80%','80–100%','100–110%','110–120%','> 120%'];
+  const getBand=v=>{if(v<0.8)return 0;if(v<1.0)return 1;if(v<1.1)return 2;if(v<=1.2)return 3;return 4;};
+  const matrix={};
+  grades.forEach(g=>{matrix[g]=faixas.map(()=>0);});
+  data.forEach(r=>{if(matrix[r.grade]!==undefined)matrix[r.grade][getBand(r.comparatio)]++;});
+  const allVals=grades.flatMap(g=>matrix[g]);
+  const maxV=Math.max(...allVals,1);
+  const alpha=v=>{const a=v/maxV;return `rgba(30,58,138,${(0.1+a*0.85).toFixed(2)})`;};
+  let t=`<table style="width:100%;border-collapse:collapse;font-size:.7rem">
+    <thead><tr><th style="padding:4px 6px;text-align:left;color:#778689;font-weight:600">Grade</th>`;
+  faixas.forEach(f=>t+=`<th style="padding:4px 6px;text-align:center;color:#778689;font-weight:600">${f}</th>`);
+  t+='</tr></thead><tbody>';
+  grades.forEach(g=>{
+    t+=`<tr><td style="padding:4px 6px;font-weight:600;color:#0B2838">G${g}</td>`;
+    matrix[g].forEach(v=>{
+      const bg=v>0?alpha(v):'#F4F6F5';
+      const fg=v>0&&v/maxV>0.5?'#fff':'#0B2838';
+      t+=`<td style="padding:4px 6px;text-align:center;background:${bg};color:${fg};font-weight:${v>0?600:400};border-radius:3px;margin:1px">${v||''}</td>`;
+    });
+    t+='</tr>';
+  });
+  el.innerHTML=t+'</tbody></table>';
+}
+
+function setCrFilter(f){
+  S.crFilter=f||'ALL';
+  ['all','low','mid','high'].forEach(x=>{const el=document.getElementById('cb-'+x);if(el)el.classList.remove('active');});
+  const el=document.getElementById('cb-'+f.toLowerCase()); if(el) el.classList.add('active');
+  const months=[...new Set(S.filt.ativos.map(r=>r.mes))].filter(Boolean).sort();
+  const lastM=months[months.length-1]||'';
+  const curr=S.filt.ativos.filter(r=>r.mes===lastM&&r.comparatio!==null&&r.comparatio<=3);
+  renderCompTable(curr);
+}
+
+function renderCompTable(data){
+  const band=S.crFilter||'ALL';
+  let rows=data||[];
+  if(band==='low') rows=rows.filter(r=>crBand(r.comparatio)==='low');
+  else if(band==='mid') rows=rows.filter(r=>crBand(r.comparatio)==='mid');
+  else if(band==='high') rows=rows.filter(r=>crBand(r.comparatio)==='high');
+  const tb=document.querySelector('#tb-comp tbody'); if(!tb) return; tb.innerHTML='';
+  [...rows].sort((a,b)=>(a.comparatio||0)-(b.comparatio||0)).forEach(r=>{
+    const bnd=crBand(r.comparatio);
+    const catLabel=bnd==='low'?'Abaixo 80%':bnd==='high'?'Acima 120%':'Ideal';
+    const catColor=bnd==='low'?'badge-red':bnd==='high'?'badge-purple':'badge-green';
+    const crCol=bnd==='low'?'text-red-600 font-bold':bnd==='high'?'text-purple-600':'text-emerald-600';
+    const flag=bnd==='low'?'<i class="ph-fill ph-warning text-red-400 ml-1"></i>':'';
+    const t=tenure(r.dataAdm);
+    tb.innerHTML+=`<tr${bnd==='low'?' style="background:#FFF5F5;"':''}>
+      <td class="text-xs">${r.mes}</td>
+      <td class="text-xs">${r.orgUnit||'-'}</td>
+      <td class="font-medium text-slate-900">${r.nome}</td>
+      <td class="text-xs">${r.cargo}</td>
+      <td class="text-xs">${fmtDateBR(r.dataAdm)}</td>
+      <td class="text-xs">${tenureFmt(t)}</td>
+      <td class="text-right text-xs ${crCol}">${r.comparatio?(r.comparatio*100).toFixed(1)+'%':'-'}${flag}</td>
+      <td><span class="badge ${catColor}">${catLabel}</span></td>
+      <td class="text-xs">${r.hrbp}</td>
+    </tr>`;
+  });
+  if(!tb.innerHTML) tb.innerHTML='<tr><td colspan="9" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+}
+
+function renderCompTable(){
+  const months=[...new Set(S.filt.ativos.map(r=>r.mes))].filter(Boolean).sort();
+  const lastM=months[months.length-1]||'';
+  let curr=S.filt.ativos.filter(r=>r.mes===lastM&&r.comparatio!==null&&r.comparatio<=3);
+  if(S.compFilter!=='ALL')curr=curr.filter(r=>crBand(r.comparatio)===S.compFilter);
+  const tb=document.querySelector('#tb-comp tbody');if(!tb)return;tb.innerHTML='';
+  [...curr].sort((a,b)=>a.comparatio-b.comparatio).forEach(r=>{
+    const band=crBand(r.comparatio);
+    const col=band==='low'?'text-red-600 font-bold':band==='high'?'text-purple-600':'text-emerald-600';
+    const flag=band==='low'?'<i class="ph-fill ph-warning text-red-500 ml-1" title="Atenção"></i>':'';
+    const t=tenure(r.dataAdm);
+    tb.innerHTML+=`<tr${band==='low'?' style="background:#FFF5F5"':''}><td class="text-xs">${r.mes}</td><td class="text-xs">${r.orgUnit}</td><td class="font-medium text-slate-900">${r.nome}</td><td class="text-xs">${r.cargo}</td><td class="text-xs">${fmtDateBR(r.dataAdm)}</td><td class="text-xs">${tenureFmt(t)}</td><td class="text-right text-xs ${col}">${(r.comparatio*100).toFixed(1)}%${flag}</td><td class="text-xs"><span class="badge ${band==='low'?'badge-red':band==='high'?'badge-purple':'badge-green'}">${crCat(r.comparatio)}</span></td><td class="text-xs">${r.hrbp}</td></tr>`;
+  });
+  if(!tb.innerHTML)tb.innerHTML='<tr><td colspan="9" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER RETENÇÃO
+// ════════════════════════════════════════════════════════
+function setRetFilter(f){
+  S.retFilter=f;
+  ['ALL','VOL','INV'].forEach(x=>{const el=document.getElementById('rb-'+x.toLowerCase());if(el)el.classList.remove('active');});
+  document.getElementById('rb-'+f.toLowerCase())?.classList.add('active');
+  renderRet();
+}
+
+function renderRet(){
+  // Checagem robusta de voluntário/involuntário
+  const isVol2=r=>{const v=String(r.tipoDeslig||'').toUpperCase().trim();return v==='VOLUNTÁRIO'||v==='VOLUNTARIO'||(v.includes('VOLUNT')&&!v.includes('INVOLUNT'));};
+  const isInv2=r=>{const v=String(r.tipoDeslig||'').toUpperCase().trim();return v==='INVOLUNTÁRIO'||v==='INVOLUNTARIO'||v.includes('INVOLUNT');};
+  let d=S.filt.deslig;
+  if(S.retFilter==='VOL') d=d.filter(isVol2);
+  else if(S.retFilter==='INV') d=d.filter(isInv2);
+  setV('r-total',d.length);
+  setV('r-tipo',S.retFilter==='ALL'?'Total':S.retFilter==='VOL'?'Voluntários':'Involuntários');
+  // Turnover
+  const months=[...new Set(S.filt.ativos.map(r=>r.mes))].filter(Boolean);
+  const hcMed=months.length?S.filt.ativos.length/months.length:1;
+  const turn=hcMed>0?(S.filt.deslig.length/hcMed*100):0; // turnover sempre sobre total de desligados
+  setV('r-turn',turn.toFixed(1)+'%');
+  // Longevidade
+  const longs=d.map(r=>tenure(r.dataAdm,r.dataDeslig?new Date(r.dataDeslig):new Date())).filter(v=>v!==null&&v>=0&&v<50);
+  setV('r-long',longs.length?(longs.reduce((a,b)=>a+b,0)/longs.length).toFixed(1)+'a':'-');
+  // Talento crítico
+  setV('r-crit',d.filter(r=>isYes(r.criticalTalent)||r.criticalTalent==='SIM').length);
+  // Top motivo
+  const motivMap=countBy(d.filter(r=>r.motivoDeslig),'motivoDeslig');
+  const topM=Object.entries(motivMap).sort((a,b)=>b[1]-a[1])[0];
+  if(topM){setV('r-top-motivo',topM[0]);setV('r-top-motivo-s',topM[1]+' ocorrência(s)');}
+  // Tipo de Saída (donut com absoluto+%)
+  const vol=S.filt.deslig.filter(isVol2).length, inv=S.filt.deslig.filter(isInv2).length, totDS=vol+inv||1;
+  if(S.charts['ch-tipo-saida']) S.charts['ch-tipo-saida'].destroy();
+  const ctxTS=document.getElementById('ch-tipo-saida'); if(ctxTS){
+    S.charts['ch-tipo-saida']=new Chart(ctxTS,{
+      type:'doughnut',
+      data:{labels:[`Voluntário (${vol})`,`Involuntário (${inv})`],datasets:[{data:[vol,inv],backgroundColor:['#B27A59','#778689'],borderWidth:1.5}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},boxWidth:10}},datalabels:{color:'#fff',font:{weight:'bold',size:11},formatter:(v)=>v>0?`${v}
+${Math.round(v/totDS*100)}%`:''},tooltip:{backgroundColor:'rgba(15,23,42,.95)',titleColor:'#F4F6F5',bodyColor:'#B4BFBE',padding:10,cornerRadius:6}}},
+      plugins:[ChartDataLabels]
+    });
+  }
+  // Performance: Alta / Média / Baixa / Não avaliado
+  const perfCat=r=>{
+    const v=String(r.catPerf||'').trim();
+    if(['É uma referência','Alta contribuição','Supera as expectativas'].includes(v)) return 'Alta';
+    if(['Cumpre plenamente','Contribuição Esperada'].includes(v)) return 'Média';
+    if(['Cumpre parcialmente','Não cumpre','Baixa contibuição ','Baixa contribuição'].some(x=>v.startsWith(x.trim()))) return 'Baixa';
+    if(v==='Não avaliado'||v==='') return 'Não avaliado';
+    return 'Não avaliado';
+  };
+  const perfMap={Alta:0,Média:0,Baixa:0,'Não avaliado':0};
+  d.forEach(r=>{perfMap[perfCat(r)]++;});
+  const perfColors={Alta:'#AABF3E',Média:'#B27A59',Baixa:'#7D2D2D','Não avaliado':'#8A9FA0'};
+  const perfKeys=['Alta','Média','Baixa','Não avaliado'];
+  mkChart('ch-perf-deslig','doughnut',perfKeys,perfKeys.map(k=>perfMap[k]),perfKeys.map(k=>perfColors[k]),{cutout:'60%',legend:true});
+  // Comparatio quem saiu — gráfico de COLUNA
+  const crD={low:0,mid:0,high:0}; d.forEach(r=>{if(r.comparatio!==null&&r.comparatio<=3){const b=crBand(r.comparatio);if(b)crD[b]++;}});
+  const crTotD=crD.low+crD.mid+crD.high||1;
+  mkChart('ch-cr-deslig','bar',['Abaixo 80%','80–120%','Acima 120%'],[crD.low,crD.mid,crD.high],['#7D2D2D','#AABF3E','#778689'],{formatter:v=>`${v} (${Math.round(v/crTotD*100)}%)`});
+  // Motivos barra
+  const motSort=Object.entries(motivMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const motTot=motSort.reduce((s,x)=>s+x[1],0)||1;
+  mkChart('ch-motivos','bar',motSort.map(x=>x[0]),motSort.map(x=>x[1]),'#105FA2',{axis:'y',formatter:v=>`${v} (${Math.round(v/motTot*100)}%)`});
+  // Tabela com Tempo Casa e HRBP
+  const tb=document.querySelector('#tb-ret tbody'); if(!tb) return; tb.innerHTML='';
+  [...d].sort((a,b)=>new Date(b.dataDeslig)-new Date(a.dataDeslig)).forEach(r=>{
+    const isV=isVol2(r);
+    const tipoBadge=isV?'<span class="badge badge-yellow">Voluntário</span>':'<span class="badge badge-gray">Involuntário</span>';
+    const critB=(isYes(r.criticalTalent)||r.criticalTalent==='SIM')?'<i class="ph-fill ph-star text-amber-400"></i>':'-';
+    const col=r.comparatio?crColor(r.comparatio):'inherit';
+    const t=tenure(r.dataAdm,r.dataDeslig?new Date(r.dataDeslig):new Date());
+    tb.innerHTML+=`<tr>
+      <td class="font-medium text-slate-900">${r.nome}</td>
+      <td class="text-xs">${r.area}</td>
+      <td class="text-xs">${r.level}</td>
+      <td class="text-center text-xs">${r.grade}</td>
+      <td>${tipoBadge}</td>
+      <td class="text-xs">${r.motivoDeslig||'-'}</td>
+      <td class="text-xs">${perfCat(r)}</td>
+      <td class="text-right text-xs font-semibold" style="color:${col}">${r.comparatio?(r.comparatio*100).toFixed(1)+'%':'-'}</td>
+      <td class="text-xs">${tenureFmt(t)}</td>
+      <td class="text-center">${critB}</td>
+      <td class="text-xs">${fmtDateBR(r.dataDeslig)}</td>
+      <td class="text-xs">${r.hrbp||'-'}</td>
+    </tr>`;
+  });
+  if(!tb.innerHTML) tb.innerHTML='<tr><td colspan="12" class="text-center text-slate-400 py-3">Sem desligamentos no filtro</td></tr>';
+}
+
+// UTILS
+function srch(id,term){document.querySelectorAll(`#${id} tbody tr`).forEach(r=>r.style.display=r.innerText.toLowerCase().includes(term.toLowerCase())?'':'none');}
+function xls(tid,name){const wb=XLSX.utils.table_to_book(document.getElementById(tid),{sheet:'Sheet1'});XLSX.writeFile(wb,(name||'Export')+'.xlsx');}
+</script>
+</body>
+</html>

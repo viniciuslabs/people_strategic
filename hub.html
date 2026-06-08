@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Strategy Hub · People Analytics</title>
+    
+    <!-- Fontes e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            bg: '#F7F7F5',      // Fundo "Warm" super leve, não é branco puro
+                            navy: '#11293B',    // Cor 1 - Textos e Títulos
+                            blue: '#1560A1',    // Cor 2 - PO
+                            copper: '#B47B5A',  // Cor 3 - Offboarding
+                            lime: '#A9C03E',    // Cor 4 - HRBP/PDI
+                            black: '#050505',   // Cor 5
+                            slate: '#78878B',   // Cor 6 - Textos Secundários
+                            silver: '#E5E7EB',  // Cor 7 - Bordas ultra suaves
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: theme('colors.brand.bg');
+        }
+        
+        /* Transição super suave para o hover minimalista */
+        .card-hover {
+            transition: all 0.4s ease;
+        }
+    </style>
+</head>
+<body class="text-brand-navy antialiased min-h-screen flex flex-col font-sans">
+
+    <!-- Container Centralizado com mais respiro (max-w-5xl em vez de 6xl) -->
+    <div class="max-w-5xl mx-auto w-full px-6 py-12 flex-1 flex flex-col">
+
+        <!-- HEADER MINIMALISTA -->
+        <header class="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-20 mt-4">
+            <div>
+                <p class="text-[10px] font-bold tracking-[0.2em] uppercase text-brand-slate mb-2">People Analytics</p>
+                <h1 class="text-2xl font-extrabold text-brand-navy tracking-tight leading-none">
+                    HR Strategy Hub
+                </h1>
+            </div>
+
+            <!-- Status de forma orgânica, sem ser um "botão" -->
+            <div class="flex items-center gap-6 text-sm font-medium text-brand-slate pb-1">
+                <div class="flex items-center gap-2">
+                    <i class="ph ph-shield-check text-lg"></i>
+                    <span>Ambiente Seguro</span>
+                </div>
+                <div class="flex items-center gap-2 text-brand-navy">
+                    <span class="w-2 h-2 rounded-full bg-brand-lime"></span>
+                    <span>Olá, seja bem-vindo(a)!</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1">
+            <!-- TÍTULO DA PÁGINA (HERO) -->
+            <div class="mb-14">
+                <h2 class="text-3xl md:text-[2.5rem] font-semibold tracking-tight text-brand-navy mb-4 leading-tight">
+                    Escolha um dos módulos <br class="hidden md:block" />para análise.
+                </h2>
+            </div>
+
+            <!-- GRID DE CARTÕES (Flat & Air) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-12">
+
+                <!-- Card 1: People Operations -->
+                <a href="people-operations.html" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-blue/30 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-users-three text-3xl text-brand-blue"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-blue card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">People Operations</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Headcount & Admissões</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">Evolução do HC, admitidos, compensação e retenção.</p>
+                </a>
+
+                <!-- Card 2: HRBP Focus -->
+                <a href="hrbp-focus.html" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-lime/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-target text-3xl text-brand-lime"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-lime card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">HRBP Focus</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Posições & Workforce</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">Vagas abertas, movimentações, workforce planning.</p>
+                </a>
+
+                <!-- Card 3: Offboarding -->
+                <a href="offboarding.html" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-copper/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-door-open text-3xl text-brand-copper"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-copper card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">Offboarding</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Entrevistas de Saída</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">Score de satisfação e padrões de desligamento.</p>
+                </a>
+
+                <!-- Card 4: Sucessão -->
+                <a href="sucessao.html" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-slate/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-plant text-3xl text-brand-slate"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-slate card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">Jornada de Sucessão</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Sucessão & Saúde</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">Cobertura de sucessores e key positions.</p>
+                </a>
+
+                <!-- Card 5: Critical Talent -->
+                <a href="critical-talent.html" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-navy/30 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-star-four text-3xl text-brand-navy"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-navy card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">Critical Talent</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Análise de Talentos</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">Talentos críticos, matriz 9-box e risco de saída.</p>
+                </a>
+
+                <!-- Card 6: PDI & Goal Setting -->
+                <a href="https://viniciuslabs.github.io/gdm_journey/" target="_blank" class="group block bg-white rounded-[24px] p-8 border border-brand-silver/60 card-hover hover:border-brand-lime/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-12">
+                        <i class="ph ph-clipboard-text text-3xl text-brand-lime"></i>
+                        <i class="ph ph-arrow-up-right text-xl text-brand-silver group-hover:text-brand-lime card-hover"></i>
+                    </div>
+                    <p class="text-[10px] font-bold tracking-widest uppercase text-brand-slate mb-2">PDI & Goal Setting</p>
+                    <h3 class="text-lg font-bold text-brand-navy mb-2">Objetivos & Desenv.</h3>
+                    <p class="text-sm text-brand-slate leading-relaxed">SMART Goals e Plano de Desenvolvimento.</p>
+                </a>
+
+            </div>
+        </main>
+
+        <!-- FOOTER MINIMALISTA -->
+        <footer class="mt-auto py-8 text-center text-xs font-medium text-brand-slate">
+            Desenvolvido por <strong class="text-brand-navy font-bold">Vinicius Carlos</strong> <span class="mx-2 opacity-50">&bull;</span> HRBP Negócios
+        </footer>
+
+    </div>
+
+</body>
+</html>

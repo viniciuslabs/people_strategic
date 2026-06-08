@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jornada de Sucessão · People Strategy</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        'brand-warm':   '#F7F7F5',
+        'brand-navy':   '#11293B',
+        'brand-blue':   '#1560A1',
+        'brand-copper': '#B47B5A',
+        'brand-lime':   '#A9C03E',
+        'brand-black':  '#050505',
+        'brand-slate':  '#78878B',
+        'brand-silver': '#E5E7EB',
+      },
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+    }
+  }
+}
+</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        /* Estilos específicos do Sucessão */
+        .ready-filter-btn {
+            padding: 5px 11px;
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: white;
+            color: var(--text-muted);
+            border: 1px solid var(--border-soft);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .ready-filter-btn:hover { color: var(--primary); border-color: var(--primary); }
+        .ready-filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Separadores de grupo na tab nav */
+        .tab-divider { width: 1px; height: 24px; background: var(--border-soft); margin: 0 0.5rem; }
+        /* Tab group labels e dividers */
+        .tab-group-label {
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: var(--text-light, #9BABAC);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 0 0.35rem;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+        }
+        .tab-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border-soft, #E0E6E5);
+            flex-shrink: 0;
+        }
+        
+        /* Readiness pills */
+        .ready-pill { font-size: 0.66rem; padding: 3px 9px; border-radius: 99px; font-weight: 700; display: inline-flex; align-items: center; white-space: nowrap; }
+        
+        /* Mapa Visual */
+        .map-grid { display: grid; grid-template-columns: 280px repeat(4, minmax(200px, 1fr)); border-bottom: 1px solid var(--border-soft); ; overflow-x: auto; }
+        .map-header { background:#F7F7F5; padding: 0.85rem 1rem; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-right: 1px solid var(--border-soft); text-align: center; position: sticky; top: 0; }
+        .map-header.lane-immediate { background: #F5F9E8; color:#6B7E1E; }
+        .map-header.lane-short { background: #EBF5FA; color: #1560A1; }
+        .map-header.lane-mid { background: #EEF2FF; color: #6366F1; }
+        .map-header.lane-long { background:#F7F7F5; color: var(--text-muted); }
+        .map-row { display: contents; }
+        .map-cell { padding: 0.75rem; border-right: 1px solid var(--border-soft); border-bottom: 1px solid #EAECEC; min-height: 100px; }
+        .map-cell-position { background: #FAFAFA; position: sticky; left: 0; z-index: 5; }
+        .map-successor-card { background: white; border: 1px solid var(--border-soft); border-radius: 8px; padding: 0.5rem 0.65rem; margin-bottom: 0.4rem; font-size: 0.7rem; transition: all 0.15s; }
+        .map-successor-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
+        
+        /* Detail cards */
+        .leader-card, .position-card, .successor-card { background: white; border: 1px solid var(--border-soft); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; transition: all 0.15s; }
+        .leader-card:hover, .position-card:hover, .successor-card:hover { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06); border-color: var(--border-medium); }
+        .successor-row { background: #FAFAFA; border: 1px solid #EAECEC; border-radius: 8px; padding: 0.6rem 0.85rem; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    
+        /* Scroll fix */
+        .main-content {
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .dashboard-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem 2rem 3rem;
+        }
+
+        /* Garante que tab-nav é flexível */
+        .tab-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.15rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tab-nav::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+
+<!-- SPLASH SCREEN -->
+<div id="splash-screen" class="splash-screen splash-purple">
+    <div class="splash-blob-tl"></div>
+    <div class="splash-blob-br"></div>
+    
+    <a href="hub.html" class="splash-back-link"><i class="ph ph-house"></i> Voltar ao Hub</a>
+    
+    <div class="splash-content">
+    <div class="splash-brand">
+      <div class="splash-brand-bar"></div>
+      <div>
+        <h1 class="splash-title">Jornada de Sucessão</h1>
+        <p class="splash-subtitle">Talent Pipeline</p>
+      </div>
+    </div>
+        <p class="splash-tagline">
+            <strong>Quem assume quando alguém sair?</strong><br>
+            Carregue a base de sucessão para gerar o diagnóstico completo de pipeline, cobertura e prontidão.
+        </p>
+        
+        <div class="splash-uploads single">
+            <label class="splash-upload-card" id="card-suc">
+                <input type="file" id="file-suc" accept=".xlsx" onchange="markLoaded('card-suc')">
+                <i class="ph ph-check-circle splash-upload-check"></i>
+                <div class="splash-upload-icon"><i class="ph-fill ph-tree-structure"></i></div>
+                <div class="splash-upload-title">Carregue a base de sucessão</div>
+                <div class="splash-upload-desc">Mapeamento de líderes, sucessores, prontidão e PDI</div>
+            </label>
+        </div>
+        
+        <button class="splash-process-btn" onclick="processFile()">
+            <span id="btn-text">Acessar Dashboard</span>
+            <i class="ph ph-arrow-right" id="btn-icon"></i>
+            <i class="ph ph-spinner animate-spin hidden" id="spinner"></i>
+        </button>
+        
+        <div class="splash-privacy-note">
+            <i class="ph-fill ph-lock-key"></i>
+            <span><strong>Privacidade garantida.</strong> Seus dados são processados localmente no seu navegador. Nada é armazenado ou enviado para servidores.</span>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<main class="main-content" id="main-app" style="display: none;">
+    
+    <div class="header-stack">
+        
+        <header class="top-bar">
+            <div class="brand-mini">
+                <a href="hub.html" style="display:flex; align-items:center; gap:0.7rem; text-decoration:none; color:inherit;">
+                    <div class="brand-mini-logo" style="background:linear-gradient(135deg,#78878B,#11293B)">
+                        <i class="ph ph-tree-structure"></i>
+                    </div>
+                    <div class="brand-mini-text">
+                        <h1>Jornada de Sucessão</h1>
+                        <p style="color:#78878B" style="color:#78878B">Talent Pipeline</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <a href="hub.html" class="btn-hub"><i class="ph-fill ph-house"></i>
+                    <span>Voltar ao Hub</span></a>
+            </div>
+        </header>
+        
+        <div class="filters-area">
+            <div class="filters-label">
+                <i class="ph ph-faders"></i> Filtros Globais
+            </div>
+            <div id="filter-bar" class="flex flex-wrap gap-2 items-center relative"></div>
+        </div>
+        
+        <!-- TAB NAVIGATION com grupos -->
+        <nav class="tab-nav">
+            <div onclick="switchTab('exec')" id="nav-exec" class="tab-item active">
+                <i class="ph ph-squares-four"></i> <span>Visão Executiva</span>
+            </div>
+            
+            <div class="tab-divider"></div>
+            <span class="tab-group-label">Diagnóstico</span>
+            
+            <div onclick="switchTab('cov')" id="nav-cov" class="tab-item">
+                <i class="ph ph-target"></i> <span>Cobertura</span>
+            </div>
+            <div onclick="switchTab('orph')" id="nav-orph" class="tab-item">
+                <i class="ph ph-shield-warning"></i> <span>Orfandade</span>
+            </div>
+            <div onclick="switchTab('risk')" id="nav-risk" class="tab-item">
+                <i class="ph ph-warning"></i> <span>Riscos</span>
+            </div>
+            
+            <div class="tab-divider"></div>
+            <span class="tab-group-label">Mapeamento</span>
+            
+            <div onclick="switchTab('lead')" id="nav-lead" class="tab-item">
+                <i class="ph ph-user"></i> <span>Por Líder</span>
+            </div>
+            <div onclick="switchTab('pos')" id="nav-pos" class="tab-item">
+                <i class="ph ph-briefcase"></i> <span>Por Posição</span>
+            </div>
+            <div onclick="switchTab('succ')" id="nav-succ" class="tab-item">
+                <i class="ph ph-user-plus"></i> <span>Por Sucessor</span>
+            </div>
+            <div onclick="switchTab('map')" id="nav-map" class="tab-item">
+                <i class="ph ph-map-trifold"></i> <span>Mapa</span>
+            </div>
+            
+            <div class="tab-divider"></div>
+            
+            <div onclick="switchTab('pdi')" id="nav-pdi" class="tab-item">
+                <i class="ph ph-clipboard-text"></i> <span>PDI</span>
+            </div>
+            
+            <div class="tab-divider"></div>
+            
+            <div onclick="switchTab('health')" id="nav-health" class="tab-item">
+                <i class="ph ph-heartbeat"></i> <span>Saúde</span>
+            </div>
+            <div onclick="switchTab('keypos')" id="nav-keypos" class="tab-item">
+                <i class="ph ph-target"></i> <span>Key Positions</span>
+            </div>
+                <div onclick="switchTab('crital_suc')" id="nav-crital_suc" class="tab-item">
+                    <i class="ph-fill ph-star"></i>
+                    <span>Critical Talent</span>
+                </div>
+            
+            <div onclick="switchTab('gloss')" id="nav-gloss" class="tab-item tab-gloss">
+                <i class="ph ph-book-bookmark"></i> <span>Glossário</span>
+            </div>
+        </nav>
+    </div>
+    
+    <div class="dashboard-scroll">
+        <div class="max-w-[1600px] mx-auto pb-12">
+            
+            <!-- ============ VISÃO EXECUTIVA ============ -->
+            <div id="view-exec" class="view-section space-y-4">
+                <div class="page-header">
+                    <h2>Visão Executiva · Sucessão</h2>
+                    <p>Indicadores estratégicos do pipeline de sucessão da liderança.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--primary-light); color: var(--primary);"><i class="ph ph-trend-up"></i></div>
+                            <div class="kpi-exec-label">Grade 12+ Mapeados</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--primary);" id="exec-g12">-</div>
+                        <div class="kpi-exec-comp" id="exec-g12-sub">Alta liderança com plano</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: #F5EDE4; color: #B47B5A;"><i class="ph ph-star"></i></div>
+                            <div class="kpi-exec-label">Talentos Críticos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: #B47B5A;" id="exec-crit">-</div>
+                        <div class="kpi-exec-comp" id="exec-crit-sub">Box 6, 7, 8 ou 9 com plano</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--success-light); color: var(--success);"><i class="ph ph-target"></i></div>
+                            <div class="kpi-exec-label">Key Positions</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--success);" id="exec-key">-</div>
+                        <div class="kpi-exec-comp" id="exec-key-sub">Cadeiras-chave mapeadas</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--purple-light); color: var(--purple);"><i class="ph ph-clipboard-text"></i></div>
+                            <div class="kpi-exec-label">PDI no Sistema</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--purple);" id="exec-pdi">-</div>
+                        <div class="kpi-exec-comp" id="exec-pdi-sub">Líderes únicos com PDI</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> COBERTURA GERAL</div>
+                        <div class="h-64 flex items-center justify-center"><canvas id="chart-exec-cov"></canvas></div>
+                    </div>
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">2.</span> DISTRIBUIÇÃO DE PRONTIDÃO</div>
+                        <div class="h-64"><canvas id="chart-exec-ready"></canvas></div>
+                    </div>
+                </div>
+                
+                <div class="insight-bar">
+                    <i class="ph ph-lightbulb"></i>
+                    <p><strong>SOBRE A VISÃO:</strong> Quatro KPIs principais mostram a saúde estratégica do pipeline. Use as abas <strong>Diagnóstico</strong> para entender riscos, <strong>Mapeamento</strong> para visualizar pessoas e cadeiras, e <strong>Saúde</strong> para o score consolidado.</p>
+                </div>
+            </div>
+            
+            <!-- ============ COBERTURA ============ -->
+            <div id="view-cov" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Cobertura de Cadeiras</h2>
+                    <p>Quantas posições possuem sucessores mapeados, por janela de prontidão.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="section-block">
+                        <div class="section-title"><span class="section-number">1.</span> COBERTURA POR PRONTIDÃO</div>
+                        <div class="mb-4 flex flex-wrap gap-2">
+                            <button class="ready-filter-btn active" data-val="All" onclick="setCovFilter('All')">Todos</button>
+                            <button class="ready-filter-btn" data-val="Imediato" onclick="setCovFilter('Imediato')">Imediato</button>
+                            <button class="ready-filter-btn" data-val="1-2 anos" onclick="setCovFilter('1-2 anos')">1-2 anos</button>
+                            <button class="ready-filter-btn" data-val="2-3 anos" onclick="setCovFilter('2-3 anos')">2-3 anos</button>
+                            <button class="ready-filter-btn" data-val="3-5 anos" onclick="setCovFilter('3-5 anos')">3-5 anos</button>
+                        </div>
+                        <div class="h-56 flex items-center justify-center"><canvas id="chart-cov-pie"></canvas></div>
+                        <p class="text-center text-xs text-slate-500 mt-3" id="cov-text">-</p>
+                    </div>
+                    <div class="section-block col-span-2">
+                        <div class="table-toolbar">
+                            <div class="section-title mb-0"><span class="section-number">2.</span> DETALHE DA COBERTURA</div>
+                            <div class="table-toolbar-actions">
+                                <div class="search-wrap">
+                                    <i class="ph ph-magnifying-glass"></i>
+                                    <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('cov-table', this.value)">
+                                </div>
+                                <button onclick="exportTableToExcel('cov-table', 'Cobertura')" class="btn-exec">
+                                    <i class="ph ph-download-simple"></i> Baixar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-[500px] overflow-y-auto">
+                            <table id="cov-table" class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Posição</th>
+                                        <th>Ocupante</th>
+                                        <th class="text-center">Grade</th>
+                                        <th class="text-center">Qtd. Sucessores</th>
+                                        <th class="text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============ ORFANDADE ============ -->
+            <div id="view-orph" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Pontos de Orfandade</h2>
+                    <p>Talentos críticos sem sucessor imediato e key positions descobertas. Pontos de maior risco do pipeline.</p>
+                </div>
+                
+                <div class="section-block" style="border-left: 4px solid var(--danger);">
+                    <div class="flex items-start gap-4 mb-5">
+                        <div class="p-3 rounded-xl" style="background: var(--danger-light); color: var(--danger);">
+                            <i class="ph ph-shield-warning text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Talentos Críticos em Perigo</h3>
+                            <p class="text-xs text-slate-500 mt-1">Líderes em Box 6, 7, 8 ou 9 sem sucessor imediato. Risco de continuidade.</p>
+                        </div>
+                        <div class="ml-auto text-3xl font-extrabold" style="color: var(--danger);" id="orph-crit-count">0</div>
+                    </div>
+                    <div id="orph-crit-list" class="space-y-2"></div>
+                </div>
+                
+                <div class="section-block" style="border-left: 4px solid #B47B5A;">
+                    <div class="flex items-start gap-4 mb-5">
+                        <div class="p-3 rounded-xl" style="background: #F5EDE4; color: #B47B5A;">
+                            <i class="ph ph-warning text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Key Positions Descobertas</h3>
+                            <p class="text-xs text-slate-500 mt-1">Posições-chave estratégicas sem nenhum sucessor mapeado.</p>
+                        </div>
+                        <div class="ml-auto text-3xl font-extrabold" style="color: #B47B5A;" id="orph-keypos-count">0</div>
+                    </div>
+                    <div id="orph-keypos-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                </div>
+            </div>
+            
+            <!-- ============ RISCOS ============ -->
+            <div id="view-risk" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Riscos & Gaps</h2>
+                    <p>Posições sem sucessor, inversões de grade e sucessores sobrecarregados.</p>
+                </div>
+                
+                <div class="section-block">
+                    <div class="section-title"><span class="section-number">1.</span> CADEIRAS VAZIAS (SEM SUCESSOR)</div>
+                    <div id="risk-empty-list" class="space-y-2"></div>
+                </div>
+                
+                <div class="section-block" style="border-left: 4px solid #1560A1;">
+                    <div class="flex items-start gap-4 mb-5">
+                        <div class="p-3 rounded-xl bg-sky-100 text-sky-600">
+                            <i class="ph ph-warning-octagon text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Inversão de Grade</h3>
+                            <p class="text-xs text-slate-500 mt-1">Sucessor com grade hierárquica superior ao líder atual.</p>
+                        </div>
+                        <div class="ml-auto text-3xl font-extrabold text-sky-600" id="risk-inv-count">0</div>
+                    </div>
+                    <div id="risk-inv-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+                
+                <div class="section-block" style="border-left: 4px solid var(--purple);">
+                    <div class="flex items-start gap-4 mb-5">
+                        <div class="p-3 rounded-xl" style="background: var(--purple-light); color: var(--purple);">
+                            <i class="ph ph-lightning text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Sucessores Sobrecarregados</h3>
+                            <p class="text-xs text-slate-500 mt-1">Sucessores indicados para mais de 4 posições simultaneamente.</p>
+                        </div>
+                        <div class="ml-auto text-3xl font-extrabold" style="color: var(--purple);" id="risk-over-count">0</div>
+                    </div>
+                    <div id="risk-over-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+            </div>
+            
+            <!-- ============ POR LÍDER ============ -->
+            <div id="view-lead" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Mapeamento por Líder</h2>
+                    <p>Cada cartão mostra um líder, sua posição e os sucessores mapeados com prontidão.</p>
+                </div>
+                
+                <div class="table-toolbar">
+                    <div class="text-xs text-slate-500 font-medium" id="lead-count">-</div>
+                    <div class="table-toolbar-actions">
+                        <div class="search-wrap">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" placeholder="Buscar líder..." class="search-input" id="lead-search" onkeyup="filterLeaderCards(this.value)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="leader-cards-container" class="space-y-3"></div>
+            </div>
+            
+            <!-- ============ POR POSIÇÃO ============ -->
+            <div id="view-pos" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Mapeamento por Posição</h2>
+                    <p>Cada cartão mostra uma posição, seus ocupantes atuais e sucessores únicos.</p>
+                </div>
+                
+                <div class="table-toolbar">
+                    <div class="text-xs text-slate-500 font-medium" id="pos-count">-</div>
+                    <div class="table-toolbar-actions">
+                        <div class="search-wrap">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" placeholder="Buscar posição..." class="search-input" id="pos-search" onkeyup="filterPositionCards(this.value)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="position-cards-container" class="space-y-3"></div>
+            </div>
+            
+            <!-- ============ POR SUCESSOR ============ -->
+            <div id="view-succ" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Mapeamento por Sucessor</h2>
+                    <p>Cada cartão mostra um sucessor único e todas as posições para as quais foi indicado.</p>
+                </div>
+                
+                <div class="table-toolbar">
+                    <div class="text-xs text-slate-500 font-medium" id="succ-count">-</div>
+                    <div class="table-toolbar-actions">
+                        <div class="search-wrap">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" placeholder="Buscar sucessor..." class="search-input" id="succ-search" onkeyup="filterSuccessorCards(this.value)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="successor-cards-container" class="space-y-3"></div>
+            </div>
+            
+            <!-- ============ MAPA VISUAL ============ -->
+            <div id="view-map" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Mapa Visual · Pipeline por Prontidão</h2>
+                    <p>Visualização das posições com sucessores distribuídos em raias temporais.</p>
+                </div>
+                
+                <div class="section-block" style="padding: 0;">
+                    <div class="overflow-x-auto">
+                        <div id="map-content" style="min-width: 1100px;"></div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap gap-5 text-[11px] text-slate-500 font-medium">
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Imediato</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-sky-500"></span> Curto Prazo (1-2 anos)</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-indigo-500"></span> Médio Prazo (2-3 anos)</span>
+                    <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-slate-400"></span> Longo Prazo</span>
+                    <span class="flex items-center gap-2"><i class="ph-fill ph-star text-amber-400"></i> Talento Crítico</span>
+                    <span class="flex items-center gap-2"><span class="status-dot status-yes"></span> PDI Ativo</span>
+                </div>
+            </div>
+            
+            <!-- ============ PDI ============ -->
+            <div id="view-pdi" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Monitoramento de PDI</h2>
+                    <p>Acompanhamento estratégico de PDIs para mitigação de risco de saída.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="kpi-exec" style="border-top: 3px solid #B47B5A;">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: #F5EDE4; color: #B47B5A;"><i class="ph ph-star"></i></div>
+                            <div class="kpi-exec-label">PDI · Talentos Críticos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: #B47B5A;" id="pdi-crit-pct">-</div>
+                        <div class="kpi-exec-comp" id="pdi-crit-sub">-</div>
+                    </div>
+                    <div class="kpi-exec" style="border-top: 3px solid var(--purple);">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background: var(--purple-light); color: var(--purple);"><i class="ph ph-users-three"></i></div>
+                            <div class="kpi-exec-label">PDI · Sucessores de Críticos</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color: var(--purple);" id="pdi-succ-pct">-</div>
+                        <div class="kpi-exec-comp" id="pdi-succ-sub">-</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <div class="table-toolbar">
+                            <div class="section-title mb-0"><i class="ph-fill ph-star text-amber-400"></i> TALENTOS CRÍTICOS</div>
+                            <div class="table-toolbar-actions">
+                                <div class="search-wrap">
+                                    <i class="ph ph-magnifying-glass"></i>
+                                    <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('pdi-crit-table', this.value)">
+                                </div>
+                                <button onclick="exportTableToExcel('pdi-crit-table', 'PDI_Lideres_Criticos')" class="btn-exec">
+                                    <i class="ph ph-download-simple"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+                            <table id="pdi-crit-table" class="modern-table">
+                                <thead><tr><th>Líder</th><th>Posição</th><th class="text-center">PDI</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="section-block">
+                        <div class="table-toolbar">
+                            <div class="section-title mb-0"><i class="ph ph-users-three" style="color: var(--purple);"></i> SUCESSORES DE CRÍTICOS</div>
+                            <div class="table-toolbar-actions">
+                                <div class="search-wrap">
+                                    <i class="ph ph-magnifying-glass"></i>
+                                    <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('pdi-succ-table', this.value)">
+                                </div>
+                                <button onclick="exportTableToExcel('pdi-succ-table', 'PDI_Sucessores_Criticos')" class="btn-exec">
+                                    <i class="ph ph-download-simple"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-96 overflow-y-auto">
+                            <table id="pdi-succ-table" class="modern-table">
+                                <thead><tr><th>Sucessor</th><th>Talento Alvo</th><th class="text-center">PDI</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-block">
+                    <div class="section-title">PDI POR ÁREA</div>
+                    <div id="pdi-area-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+                </div>
+                
+                <div class="section-block">
+                    <div class="table-toolbar">
+                        <div class="section-title mb-0">LISTA GERAL DE LÍDERES</div>
+                        <div class="table-toolbar-actions">
+                            <div class="search-wrap">
+                                <i class="ph ph-magnifying-glass"></i>
+                                <input type="text" placeholder="Buscar..." class="search-input" onkeyup="searchTable('pdi-all-table', this.value)">
+                            </div>
+                            <button onclick="exportTableToExcel('pdi-all-table', 'PDI_Lideranca_Geral')" class="btn-exec">
+                                <i class="ph ph-download-simple"></i> Baixar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-slate-100">
+                        <table id="pdi-all-table" class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Área</th>
+                                    <th class="text-center">Grade</th>
+                                    <th>Crítico</th>
+                                    <th class="text-center">Status PDI</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============ SAÚDE DO PIPELINE ============ -->
+            <div id="view-health" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Saúde do Pipeline</h2>
+                    <p>Score consolidado que pondera Cobertura, Prontidão Imediata e PDI dos Sucessores de Críticos.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="section-block flex flex-col items-center text-center">
+                        <h3 class="font-bold text-slate-800 text-base mb-4">Pipeline Health Score</h3>
+                        <div id="health-score-circle" class="mb-4" style="width:160px;height:160px;border-radius:50%;border:10px solid #A9C03E;background:#F5F9E8;display:flex;align-items:center;justify-content:center;">
+                            <span id="health-score-value" style="font-size:3rem;font-weight:800;color:#6B7E1E;letter-spacing:-0.03em;">0</span>
+                        </div>
+                        <p class="text-xs font-bold uppercase tracking-widest" id="health-score-label" style="color:#6B7E1E;"></p>
+                        
+                        <div class="w-full max-w-md mt-6">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2 text-left">Memória de Cálculo</div>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex justify-between items-center bg-indigo-50/50 p-2.5 rounded border border-indigo-100">
+                                    <span class="text-slate-600 font-medium">1. Cobertura (35%)</span>
+                                    <span class="font-bold text-indigo-700" id="health-cov">-</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-emerald-50/50 p-2.5 rounded border border-emerald-100">
+                                    <span class="text-slate-600 font-medium">2. Prontidão Imediata (30%)</span>
+                                    <span class="font-bold text-emerald-700" id="health-ready">-</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-violet-50/50 p-2.5 rounded border border-violet-100">
+                                    <span class="text-slate-600 font-medium">3. PDI Sucessores de Críticos (35%)</span>
+                                    <span class="font-bold text-violet-700" id="health-pdi">-</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-rose-50/50 p-2.5 rounded border border-rose-100" id="health-penalty-row">
+                                    <span class="text-rose-600 font-medium">Penalidade Orfandade (máx -20 pts)</span>
+                                    <span class="font-bold text-rose-700" id="health-penalty">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="section-block">
+                        <h3 class="font-bold text-slate-800 text-base mb-4">Score por Área</h3>
+                        <div id="health-area-list" class="space-y-3"></div>
+                    </div>
+                </div>
+                
+                <div class="section-block">
+                    <h3 class="font-bold text-slate-800 text-base mb-4">Recomendações</h3>
+                    <div id="health-recommendations" class="space-y-3"></div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <h4 class="font-bold text-slate-800 mb-4 text-sm">Pilares do Cálculo</h4>
+                        <div class="space-y-3 text-xs text-slate-600">
+                            <div class="flex gap-3"><div class="w-1.5 h-1.5 mt-1.5 bg-indigo-500 rounded-full shrink-0"></div><div><strong class="block text-indigo-700 mb-0.5">1. Amplitude do Pipeline (35%)</strong>Proporção de posições com ao menos um sucessor.</div></div>
+                            <div class="flex gap-3"><div class="w-1.5 h-1.5 mt-1.5 bg-emerald-500 rounded-full shrink-0"></div><div><strong class="block text-emerald-700 mb-0.5">2. Velocidade de Resposta (30%)</strong>Porcentagem de cadeiras com sucessor Imediato.</div></div>
+                            <div class="flex gap-3"><div class="w-1.5 h-1.5 mt-1.5 bg-violet-500 rounded-full shrink-0"></div><div><strong class="block text-violet-700 mb-0.5">3. Garantia de Retenção (35%)</strong>Sucessores de Críticos com PDI ativo.</div></div>
+                            <div class="flex gap-3"><div class="w-1.5 h-1.5 mt-1.5 bg-rose-500 rounded-full shrink-0"></div><div><strong class="block text-rose-700 mb-0.5">Penalidade Orfandade (máx -20 pts)</strong>2 pontos por cada Talento Crítico sem sucessor imediato, limitado a 20 pontos.</div></div>
+                        </div>
+                    </div>
+                    <div class="section-block">
+                        <h4 class="font-bold text-slate-800 mb-4 text-sm">Régua de Referência</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center gap-3 p-2.5 rounded bg-emerald-50 border border-emerald-100"><span class="font-bold text-emerald-700 w-16 text-right">90–100</span><span class="text-slate-600">Excelência</span></div>
+                            <div class="flex items-center gap-3 p-2.5 rounded bg-emerald-50/30 border border-emerald-50"><span class="font-bold text-emerald-600 w-16 text-right">75–89</span><span class="text-slate-600">Saudável</span></div>
+                            <div class="flex items-center gap-3 p-2.5 rounded bg-amber-50 border border-amber-100"><span class="font-bold text-amber-600 w-16 text-right">60–74</span><span class="text-slate-600">Em Construção</span></div>
+                            <div class="flex items-center gap-3 p-2.5 rounded bg-rose-50 border border-rose-100"><span class="font-bold text-rose-600 w-16 text-right">0–59</span><span class="text-slate-600">Crítico</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============ KEY POSITIONS ============ -->
+            <div id="view-keypos" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Key Positions</h2>
+                    <p>Posições estratégicas críticas para a operação. Demandam cobertura prioritária e análise dedicada.</p>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--accent-light);color:var(--accent);"><i class="ph ph-target"></i></div>
+                            <div class="kpi-exec-label">Total Key Positions</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--accent);" id="kp-total">-</div>
+                        <div class="kpi-exec-comp">Posições estratégicas</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success);"><i class="ph ph-check-circle"></i></div>
+                            <div class="kpi-exec-label">Com Sucessor</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--success);" id="kp-covered">-</div>
+                        <div class="kpi-exec-comp" id="kp-covered-pct">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success);"><i class="ph ph-lightning"></i></div>
+                            <div class="kpi-exec-label">Com Sucessor Imediato</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--success);" id="kp-immediate">-</div>
+                        <div class="kpi-exec-comp" id="kp-immediate-pct">-</div>
+                    </div>
+                    <div class="kpi-exec">
+                        <div class="kpi-exec-header">
+                            <div class="kpi-exec-icon" style="background:var(--danger-light);color:var(--danger);"><i class="ph ph-shield-warning"></i></div>
+                            <div class="kpi-exec-label">Descobertas</div>
+                        </div>
+                        <div class="kpi-exec-number" style="color:var(--danger);" id="kp-empty">-</div>
+                        <div class="kpi-exec-comp">Sem nenhum sucessor</div>
+                    </div>
+                </div>
+                
+                <div id="kp-cards-container" class="space-y-3"></div>
+            </div>
+                <!-- ══════════════════════════════════════════════════
+                     VISÃO CRITICAL TALENT (SUCESSÃO)
+                ══════════════════════════════════════════════════ -->
+                <div id="view-crital_suc" class="view-section hidden space-y-4">
+                    <div class="page-header">
+                        <h2>Critical Talent</h2>
+                        <p>Mapeamento de sucessão e PDI dos líderes classificados como Critical Talent.</p>
+                    </div>
+
+                    <!-- KPIs -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="kpi-exec">
+                            <div class="kpi-exec-header">
+                                <div class="kpi-exec-icon" style="background:#FEF3C7;color:#8C5A3C"><i class="ph-fill ph-star"></i></div>
+                                <div class="kpi-exec-label">Total Critical Talent</div>
+                            </div>
+                            <div class="kpi-exec-number" id="ct-suc-total" style="color:#8C5A3C">—</div>
+                            <div class="kpi-exec-comp" id="ct-suc-total-s">Líderes críticos</div>
+                        </div>
+                        <div class="kpi-exec">
+                            <div class="kpi-exec-header">
+                                <div class="kpi-exec-icon" style="background:var(--success-light);color:var(--success-dark)"><i class="ph ph-users"></i></div>
+                                <div class="kpi-exec-label">Com Sucessor Mapeado</div>
+                            </div>
+                            <div class="kpi-exec-number" id="ct-suc-mapped" style="color:var(--success-dark)">—</div>
+                            <div class="kpi-exec-comp" id="ct-suc-mapped-s">Cobertura</div>
+                        </div>
+                        <div class="kpi-exec">
+                            <div class="kpi-exec-header">
+                                <div class="kpi-exec-icon" style="background:var(--primary-light);color:var(--primary)"><i class="ph ph-clipboard-text"></i></div>
+                                <div class="kpi-exec-label">PDI em Sistema</div>
+                            </div>
+                            <div class="kpi-exec-number" id="ct-suc-pdi" style="color:var(--primary)">—</div>
+                            <div class="kpi-exec-comp" id="ct-suc-pdi-s">Têm PDI</div>
+                        </div>
+                        <div class="kpi-exec">
+                            <div class="kpi-exec-header">
+                                <div class="kpi-exec-icon" style="background:var(--warning-light);color:var(--warning-dark)"><i class="ph ph-warning"></i></div>
+                                <div class="kpi-exec-label">Críticos Sem PDI</div>
+                            </div>
+                            <div class="kpi-exec-number" id="ct-suc-sem-pdi" style="color:var(--warning-dark)">—</div>
+                            <div class="kpi-exec-comp">Atenção requerida</div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Critical Talents -->
+                    <div class="section-block">
+                        <div class="table-toolbar">
+                            <div class="section-title mb-0">ANALÍTICO · CRITICAL TALENTS</div>
+                            <div class="table-toolbar-actions">
+                                <div class="search-wrap"><i class="ph ph-magnifying-glass"></i>
+                                    <input type="text" placeholder="Buscar..." class="search-input"
+                                        onkeyup="srchTable('tb-ct-suc',this.value)">
+                                </div>
+                                <button onclick="xportTable('tb-ct-suc','CriticalTalent_Sucessao')" class="btn-exec">
+                                    <i class="ph ph-download-simple"></i> Baixar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-[500px] overflow-y-auto">
+                            <table id="tb-ct-suc" class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Líder</th>
+                                        <th>Área</th>
+                                        <th>Cargo</th>
+                                        <th class="text-center">Grade</th>
+                                        <th class="text-center">Sucessor</th>
+                                        <th class="text-center">Readiness</th>
+                                        <th class="text-center">PDI</th>
+                                        <th>HRBP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tb-ct-suc-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+
+            
+            <!-- ============ GLOSSÁRIO ============ -->
+            <!-- ============ GLOSSÁRIO ============ -->
+            <div id="view-gloss" class="view-section hidden space-y-4">
+                <div class="page-header">
+                    <h2>Glossário & Conceitos</h2>
+                    <p>Guia rápido para indicadores e simbologia do dashboard de sucessão.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="section-block">
+                        <h3 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2"><i class="ph ph-tree-structure text-blue-700"></i> Conceitos de Pipeline</h3>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="border-b border-slate-100 pb-3">
+                                <span class="font-semibold text-blue-700 text-sm block mb-1">Cobertura (Depth)</span>
+                                Profundidade do pipeline. Quantas posições possuem ao menos um sucessor mapeado.
+                            </li>
+                            <li class="border-b border-slate-100 pb-3">
+                                <span class="font-semibold text-emerald-700 text-sm block mb-1">Prontidão (Readiness)</span>
+                                Tempo estimado para o sucessor assumir. Imediato, 1-2 anos, 2-3 anos, 3-5 anos, 4-6 anos, Em Formação.
+                            </li>
+                            <li class="border-b border-slate-100 pb-3">
+                                <span class="font-semibold text-amber-700 text-sm block mb-1">Talento Crítico</span>
+                                Líder posicionado em <strong>Box 6, 7, 8 ou 9</strong> no Talent Review.
+                            </li>
+                            <li class="border-b border-slate-100 pb-3">
+                                <span class="font-semibold text-rose-700 text-sm block mb-1">Orfandade Estratégica</span>
+                                Talento crítico sem sucessor imediato. Risco alto de descontinuidade.
+                            </li>
+                            <li class="border-b border-slate-100 pb-3">
+                                <span class="font-semibold text-sky-700 text-sm block mb-1">Key Position</span>
+                                Posição-chave vital para a operação. Demanda mapeamento prioritário.
+                            </li>
+                            <li>
+                                <span class="font-semibold text-purple-700 text-sm block mb-1">Backfill</span>
+                                O sucessor já possui um substituto mapeado para sua atual posição.
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="section-block">
+                        <h3 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2"><i class="ph ph-palette text-pink-600"></i> Simbologia & Alertas</h3>
+                        <ul class="space-y-3 text-xs text-slate-600">
+                            <li class="flex items-center gap-3">
+                                <i class="ph-fill ph-star text-amber-400 text-lg"></i>
+                                <span><b>Talento Crítico:</b> Box 6, 7, 8 ou 9.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="ph ph-lightning text-purple-500 text-lg"></i>
+                                <span><b>Sucessor Sobrecarregado:</b> Indicado para mais de 4 posições.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="ph ph-warning-octagon text-sky-500 text-lg"></i>
+                                <span><b>Inversão de Grade:</b> Sucessor com grade superior ao líder.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <i class="ph ph-warning-circle text-orange-500 text-lg"></i>
+                                <span><b>Salto Alto de Grade:</b> Diferença superior a 2 níveis.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="status-dot status-yes"></span>
+                                <span><b>PDI Ativo:</b> Plano de desenvolvimento em sistema.</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="status-dot status-no"></span>
+                                <span><b>Sem PDI:</b> Plano pendente ou não aplicável.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                
+            
+        </div>
+    </div>
+    
+    <footer class="app-footer">
+        Desenvolvido por <strong>Vinicius Carlos</strong> · HRBP Negócios &nbsp;·&nbsp;
+        <a href="hub.html" style="color:var(--accent,#1560A1); text-decoration:none;">← Voltar ao Hub</a>
+    </footer>
+</main>
+
+<style>
+    .ready-filter-btn {
+        padding: 5px 11px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: white;
+        color: var(--text-muted);
+        border: 1px solid var(--border-soft);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .ready-filter-btn:hover { color: var(--primary); border-color: var(--primary); }
+    .ready-filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+</style>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const State = {
+    raw: [],
+    filtered: [],
+    filters: { hrbp: [], country: [], area: [], orgUnit: [], leaderGrade: [], isKeyPosition: [] },
+    searchTerm: '',
+    charts: {},
+    coverageTimeFilter: ['All'],
+    activeView: 'exec',
+    dirtyViews: new Set()
+};
+
+// View → função de render
+const VIEW_RENDERS = {
+    'exec': () => renderExec(),
+    'cov': () => renderCoverage(),
+    'orph': () => renderOrphan(),
+    'risk': () => renderRisks(),
+    'lead': () => renderByLeader(),
+    'pos': () => renderByPosition(),
+    'succ': () => renderBySuccessor(),
+    'map': () => renderMap(),
+    'pdi': () => renderPDI(),
+    'gloss': () => {}  // estática
+};
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const READINESS_CONFIG = {
+    'Imediato':    { weight: 1, hex: '#AABF3E', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', label: 'Imediato' },
+    '1-2 anos':    { weight: 2, hex: '#105FA2', bgClass: 'bg-sky-100',     textClass: 'text-sky-700',     label: '1-2 anos' },
+    '2-3 anos':    { weight: 3, hex: '#6366F1', bgClass: 'bg-indigo-100',  textClass: 'text-indigo-700',  label: '2-3 anos' },
+    '3-5 anos':    { weight: 4, hex: '#B27A59', bgClass: 'bg-amber-100',   textClass: 'text-amber-700',   label: '3-5 anos' },
+    '4-6 anos':    { weight: 5, hex: '#105FA2', bgClass: 'bg-orange-100',  textClass: 'text-orange-700',  label: '4-6 anos' },
+    'Em Formação': { weight: 6, hex: '#8A9FA0', bgClass: 'bg-slate-200',   textClass: 'text-slate-600',   label: 'Em Formação' },
+    'Outros':      { weight: 7, hex: '#B4BFBE', bgClass: 'bg-slate-100',   textClass: 'text-slate-500',   label: 'Outros' },
+    'N/A':         { weight: 8, hex: '#EAECEC', bgClass: 'bg-white',       textClass: 'text-slate-300',   label: 'N/A' }
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function cleanData(val) {
+    if (val === undefined || val === null) return '';
+    const s = String(val).trim();
+    return ['SEM DADOS', '-', 'NAN', 'UNDEFINED', ''].includes(s.toUpperCase()) ? '' : s;
+}
+
+function normalizeBox(val) {
+    if (!val) return 'N/A';
+    const s = String(val).toUpperCase().trim();
+    if (s.includes('ELEGÍVEL') || s.includes('SEM') || s === '') return 'N/A';
+    const num = parseInt(s);
+    return !isNaN(num) && num >= 1 && num <= 9 ? num.toString() : 'N/A';
+}
+
+// CRITICAL TALENT: Box 6, 7, 8 ou 9 (conforme decisão atualizada)
+function isCriticalBox(box) {
+    return ['6', '7', '8', '9'].includes(normalizeBox(box));
+}
+
+function checkIsOk(val) {
+    return ['YES', 'SIM', 'S'].includes(String(val || '').toUpperCase().trim());
+}
+
+function getReadinessCategory(str) {
+    if (!str || str === 'N/A' || str === '') return 'N/A';
+    const s = String(str).toLowerCase().trim();
+    if (s.includes('imediato') || s.includes('ready')) return 'Imediato';
+    if (s.includes('1-2')) return '1-2 anos';
+    if (s.includes('2-3')) return '2-3 anos';
+    if (s.includes('3-5')) return '3-5 anos';
+    if (s.includes('4-6')) return '4-6 anos';
+    if (s.includes('elegível') || s.includes('elegivel') || s.includes('formação')) return 'Em Formação';
+    return 'Outros';
+}
+
+function getReadinessStyle(val) {
+    return READINESS_CONFIG[getReadinessCategory(val)] || READINESS_CONFIG['Outros'];
+}
+
+function getReadinessWeight(val) {
+    return READINESS_CONFIG[getReadinessCategory(val)]?.weight || 99;
+}
+
+function checkGradeGap(leaderGr, succGr) {
+    const l = parseInt(leaderGr);
+    const s = parseInt(succGr);
+    if (isNaN(l) || isNaN(s)) return false;
+    if ((l - s) > 2) return 'high_jump';
+    if (s > l) return 'inversion';
+    return false;
+}
+
+// ============================================================
+// FILE LOADING
+// ============================================================
+function markLoaded(cardId) {
+    document.getElementById(cardId).classList.add('loaded');
+}
+
+function openSplash() {
+    document.getElementById('splash-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+    document.body.classList.remove('splash-closed');
+}
+
+async function processFile() {
+    const btn = document.getElementById('btn-text');
+    const spin = document.getElementById('spinner');
+    const btnIcon = document.getElementById('btn-icon');
+    
+    if (typeof XLSX === 'undefined') {
+        alert("Biblioteca XLSX carregando... aguarde 2 segundos.");
+        return;
+    }
+    
+    const fInput = document.getElementById('file-suc');
+    const f = fInput ? fInput.files[0] : null;
+    if (!f) { alert("Selecione a base de Sucessão."); return; }
+    
+    btn.innerText = "Lendo arquivo...";
+    btnIcon.classList.add('hidden');
+    spin.classList.remove('hidden');
+    
+    try {
+        const arrayBuffer = await f.arrayBuffer();
+        const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+        // Lê a primeira aba (no original o usuário disse pra ignorar as outras)
+        const firstSheet = wb.SheetNames[0];
+        const data = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet], { defval: '' });
+        
+        if (!data.length) {
+            alert("Arquivo vazio ou formato incompatível.");
+            return;
+        }
+        
+        // Normaliza
+        State.raw = data.map(row => ({
+            hrbp: cleanData(row['HRBP']),
+            orgUnit: cleanData(row['UNID_ORG']),
+            leaderPosition: cleanData(row['NOME_POSICAO']),
+            isKeyPosition: cleanData(row['POSICAO_KEY_POSITION']),
+            area: cleanData(row['AREA']),
+            country: cleanData(row['PAIS']),
+            leaderName: cleanData(row['LIDER_NOME']),
+            leaderId: cleanData(row['LIDER_ID']),
+            leaderEmail: cleanData(row['LIDER_EMAIL']),
+            leaderGrade: cleanData(row['LIDER_GRADE']),
+            leaderBox: cleanData(row['LIDER_BOX']),
+            leaderCritical: cleanData(row['LIDER_CRITICAL_TALENT']),
+            leaderRisk: cleanData(row['LIDER_RISCO_SAIDA']),
+            leaderPDI: cleanData(row['LIDER_STATUS_PDI']),
+            leaderGender: cleanData(row['LIDER_DIVERSIDADE']),
+            successorId: cleanData(row['SUCESSOR_ID']),
+            successorName: cleanData(row['SUCESSOR_NOME']),
+            successorEmail: cleanData(row['SUCESSOR_EMAIL']),
+            successorGrade: cleanData(row['SUCESSOR_GRADE']),
+            readiness: cleanData(row['SUCESSOR_PRONTIDAO']),
+            successorBox: cleanData(row['SUCESSOR_BOX']),
+            successorCritical: cleanData(row['SUCESSOR_CRITICAL_TALENT']),
+            hasPDI: cleanData(row['SUCESSOR_STATUS_PDI']),
+            mobility: cleanData(row['SUCESSOR_MOBILIDADE']),
+            successorGender: cleanData(row['SUCESSOR_DIVERSIDADE']),
+            successorHasBackfill: cleanData(row['SUCESSOR_POSSUI_SUCESSOR'])
+        }));
+        
+        document.getElementById('splash-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        document.body.classList.add('splash-closed');
+        initFilters();
+    } catch (e) {
+        alert("Erro ao processar arquivo.");
+        console.error(e);
+    } finally {
+        btn.innerText = "Acessar Dashboard";
+        btnIcon.classList.remove('hidden');
+        spin.classList.add('hidden');
+    }
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+let filterDebounceTimer = null;
+function debouncedApply() {
+    if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = setTimeout(() => { applyFilters(); }, 350);
+}
+
+function initFilters() {
+    const keys = [
+        ['HRBP', 'hrbp'],
+        ['ÁREA', 'area'],
+        ['PAÍS', 'country'],
+        ['UNID. ORG', 'orgUnit'],
+        ['GRADE', 'leaderGrade'],
+        ['KEY POSITION', 'isKeyPosition']
+    ];
+    const bar = document.getElementById('filter-bar');
+    bar.innerHTML = '';
+    
+    // Adiciona campo de busca primeiro
+    const searchDiv = document.createElement('div');
+    searchDiv.className = 'search-wrap';
+    searchDiv.innerHTML = '<i class="ph ph-magnifying-glass"></i><input type="text" id="global-search" placeholder="Buscar líder, sucessor, posição..." class="search-input" style="width: 280px;" onkeyup="debouncedSearch(this.value)">';
+    bar.appendChild(searchDiv);
+    
+    keys.forEach(([lbl, k]) => {
+        const div = document.createElement('div');
+        div.className = 'relative';
+        const btn = document.createElement('button');
+        btn.className = 'filter-pill';
+        btn.id = `btn-${k}`;
+        btn.innerHTML = `<span>${lbl}: <span id="lbl-${k}" class="font-normal text-xs ml-1">Todos</span></span><i class="ph ph-caret-down"></i>`;
+        btn.onclick = (e) => { e.stopPropagation(); toggleDropdown(k); };
+        const dd = document.createElement('div');
+        dd.className = 'dropdown-menu';
+        dd.id = `dd-${k}`;
+        div.appendChild(btn);
+        div.appendChild(dd);
+        bar.appendChild(div);
+    });
+    
+    const clear = document.createElement('button');
+    clear.className = 'text-[10px] text-blue-700 font-semibold hover:bg-blue-50 px-3 py-1 rounded ml-auto transition';
+    clear.innerHTML = 'LIMPAR FILTROS';
+    clear.onclick = () => {
+        State.filters = { hrbp: [], country: [], area: [], orgUnit: [], leaderGrade: [], isKeyPosition: [] };
+        State.searchTerm = '';
+        const gs = document.getElementById('global-search');
+        if (gs) gs.value = '';
+        debouncedApply();
+    };
+    bar.appendChild(clear);
+    
+    applyFilters();
+    window.onclick = () => document.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('show'));
+}
+
+let searchDebounceTimer = null;
+function debouncedSearch(val) {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        State.searchTerm = val.toLowerCase();
+        applyFilters();
+    }, 300);
+}
+
+function getCascadeOptions(targetKey) {
+    let d = State.raw;
+    const f = State.filters;
+    if (targetKey !== 'hrbp' && f.hrbp.length) d = d.filter(r => f.hrbp.includes(r.hrbp));
+    if (targetKey !== 'country' && f.country.length) d = d.filter(r => f.country.includes(r.country));
+    if (targetKey !== 'area' && f.area.length) d = d.filter(r => f.area.includes(r.area));
+    if (targetKey !== 'orgUnit' && f.orgUnit.length) d = d.filter(r => f.orgUnit.includes(r.orgUnit));
+    if (targetKey !== 'leaderGrade' && f.leaderGrade.length) d = d.filter(r => f.leaderGrade.includes(r.leaderGrade));
+    if (targetKey !== 'isKeyPosition' && f.isKeyPosition.length) d = d.filter(r => f.isKeyPosition.includes(r.isKeyPosition));
+    
+    let opts = [...new Set(d.map(r => r[targetKey]))].filter(x => x);
+    
+    if (targetKey === 'leaderGrade') {
+        opts.sort((a, b) => parseFloat(a) - parseFloat(b));
+    } else {
+        opts.sort();
+    }
+    return opts;
+}
+
+function toggleDropdown(key) {
+    document.querySelectorAll('.dropdown-menu').forEach(d => { if (d.id !== `dd-${key}`) d.classList.remove('show'); });
+    const dd = document.getElementById(`dd-${key}`);
+    const opts = getCascadeOptions(key);
+    dd.innerHTML = '<div class="p-2 border-b border-slate-100 mb-1 text-xs font-semibold text-blue-700 cursor-pointer hover:bg-slate-50 rounded" onclick="toggleAll(\'' + key + '\', ' + opts.length + ')">(Selecionar Todos)</div>';
+    opts.forEach(val => {
+        const checked = State.filters[key].includes(val);
+        const safe = String(val).replace(/'/g, "\\'");
+        dd.innerHTML += `<label class="flex items-center gap-2 p-2 hover:bg-slate-50 cursor-pointer text-xs text-slate-700 rounded"><input type="checkbox" class="accent-blue-700" ${checked?'checked':''} onchange="handleSel('${key}','${safe}',this.checked)"> ${val}</label>`;
+    });
+    dd.classList.toggle('show');
+}
+
+function toggleAll(key, total) {
+    const opts = getCascadeOptions(key);
+    State.filters[key] = (State.filters[key].length === total && total > 0) ? [] : opts;
+    debouncedApply();
+}
+
+function handleSel(key, val, checked) {
+    if (checked) State.filters[key].push(val);
+    else State.filters[key] = State.filters[key].filter(v => v !== val);
+    debouncedApply();
+}
+
+function applyFilters() {
+    Object.keys(State.filters).forEach(k => {
+        const len = State.filters[k].length;
+        const el = document.getElementById(`lbl-${k}`);
+        const btn = document.getElementById(`btn-${k}`);
+        if (el && btn) {
+            if (len === 0) { el.innerText = "Todos"; btn.classList.remove('active'); }
+            else { el.innerText = len > 1 ? `(${len})` : State.filters[k][0]; btn.classList.add('active'); }
+        }
+    });
+    
+    State.filtered = State.raw.filter(r => {
+        const f = State.filters;
+        if (f.hrbp.length && !f.hrbp.includes(r.hrbp)) return false;
+        if (f.country.length && !f.country.includes(r.country)) return false;
+        if (f.area.length && !f.area.includes(r.area)) return false;
+        if (f.orgUnit.length && !f.orgUnit.includes(r.orgUnit)) return false;
+        if (f.leaderGrade.length && !f.leaderGrade.includes(r.leaderGrade)) return false;
+        if (f.isKeyPosition.length && !f.isKeyPosition.includes(r.isKeyPosition)) return false;
+        if (State.searchTerm) {
+            const text = ((r.leaderName||'') + ' ' + (r.successorName||'') + ' ' + (r.leaderPosition||'')).toLowerCase();
+            if (!text.includes(State.searchTerm)) return false;
+        }
+        return true;
+    });
+    
+    updateDashboard();
+}
+
+function updateDashboard() {
+    // Renderiza só a view ativa
+    if (VIEW_RENDERS[State.activeView]) VIEW_RENDERS[State.activeView]();
+    // Marca as outras como dirty
+    Object.keys(VIEW_RENDERS).forEach(v => {
+        if (v !== State.activeView) State.dirtyViews.add(v);
+    });
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.view-section').forEach(e => e.classList.add('hidden'));
+    document.getElementById('view-' + id).classList.remove('hidden');
+    document.querySelectorAll('.tab-item').forEach(e => e.classList.remove('active'));
+    document.getElementById('nav-' + id).classList.add('active');
+    State.activeView = id;
+    
+    // Lazy render
+    if (State.dirtyViews.has(id) && VIEW_RENDERS[id]) {
+        VIEW_RENDERS[id]();
+        State.dirtyViews.delete(id);
+    }
+    
+    window.dispatchEvent(new Event('resize'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (id === 'crital_suc') renderCriticalTalentSuc();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================================================
+// AGGREGATIONS (cached por chamada)
+// ============================================================
+function getNominationsCount() {
+    const counts = {};
+    State.filtered.forEach(d => { if (d.successorName) counts[d.successorName] = (counts[d.successorName] || 0) + 1; });
+    return counts;
+}
+
+function getGroupedByLeader() {
+    const nomCounts = getNominationsCount();
+    const map = new Map();
+    State.filtered.forEach(d => {
+        if (!d.leaderName) return;
+        const k = `${d.leaderName}-${d.leaderPosition}`;
+        if (!map.has(k)) map.set(k, { ...d, successors: [] });
+        if (d.successorName) {
+            map.get(k).successors.push({
+                name: d.successorName, email: d.successorEmail, readiness: d.readiness,
+                box: normalizeBox(d.successorBox), isCritical: isCriticalBox(d.successorBox),
+                grade: d.successorGrade, hasPDI: d.hasPDI, backfill: d.successorHasBackfill,
+                mobility: d.mobility, nominationCount: nomCounts[d.successorName] || 0
+            });
+        }
+    });
+    return Array.from(map.values());
+}
+
+function getGroupedByPosition() {
+    const nomCounts = getNominationsCount();
+    const map = new Map();
+    State.filtered.forEach(d => {
+        if (!d.leaderPosition) return;
+        if (!map.has(d.leaderPosition)) map.set(d.leaderPosition, {
+            name: d.leaderPosition, grade: d.leaderGrade, isKeyPosition: d.isKeyPosition,
+            occupants: [], successors: [], uniqueSuccs: new Set()
+        });
+        const entry = map.get(d.leaderPosition);
+        if (d.leaderName && !entry.occupants.some(o => o.name === d.leaderName)) {
+            entry.occupants.push({ name: d.leaderName, grade: d.leaderGrade, isCritical: checkIsOk(d.leaderCritical), pdi: d.leaderPDI });
+        }
+        if (d.successorName && !entry.uniqueSuccs.has(d.successorName)) {
+            entry.uniqueSuccs.add(d.successorName);
+            entry.successors.push({
+                name: d.successorName, readiness: d.readiness, grade: d.successorGrade,
+                isCritical: isCriticalBox(d.successorBox), box: d.successorBox, mobility: d.mobility,
+                hasPDI: d.hasPDI, backfill: d.successorHasBackfill, nominationCount: nomCounts[d.successorName] || 0
+            });
+        }
+    });
+    return Array.from(map.values()).map(item => {
+        item.successors.sort((a, b) => getReadinessWeight(a.readiness) - getReadinessWeight(b.readiness));
+        return item;
+    });
+}
+
+function getGroupedBySuccessor() {
+    const nomCounts = getNominationsCount();
+    const map = new Map();
+    State.filtered.forEach(d => {
+        if (!d.successorName) return;
+        const k = d.successorEmail || d.successorName;
+        if (!map.has(k)) map.set(k, {
+            name: d.successorName, grade: d.successorGrade, hasPDI: d.hasPDI, box: d.successorBox,
+            mobility: d.mobility, backfill: d.successorHasBackfill,
+            isCritical: isCriticalBox(d.successorBox), nominationCount: nomCounts[d.successorName] || 0,
+            nominations: []
+        });
+        map.get(k).nominations.push({
+            position: d.leaderPosition, incumbent: d.leaderName, grade: d.leaderGrade,
+            readiness: d.readiness, leaderCritical: d.leaderCritical
+        });
+    });
+    // Ordena: críticos primeiro, depois por número de indicações desc
+    return Array.from(map.values()).sort((a, b) => {
+        if (a.isCritical !== b.isCritical) return b.isCritical - a.isCritical;
+        return b.nominations.length - a.nominations.length;
+    });
+}
+
+function getMetrics() {
+    const grouped = getGroupedByLeader();
+    const totalPositions = grouped.length;
+    const covered = grouped.filter(l => l.successors.length > 0).length;
+    
+    const uniqueCriticalLeaders = new Set();
+    const criticalLeadersNoPDI = new Set();
+    const uniqueRisks = new Set();
+    const inversions = [];
+    const highJumps = [];
+    
+    const successorsOfCritical = new Map();
+    State.filtered.forEach(d => {
+        if (d.successorName && checkIsOk(d.leaderCritical)) {
+            const key = `${d.successorName}-${d.leaderName}`;
+            if (!successorsOfCritical.has(key)) {
+                successorsOfCritical.set(key, { successorPDI: d.hasPDI });
+            }
+        }
+    });
+    const succList = Array.from(successorsOfCritical.values());
+    const succOk = succList.filter(s => checkIsOk(s.successorPDI)).length;
+    const pdiPct = succList.length > 0 ? Math.round((succOk / succList.length) * 100) : 0;
+    
+    grouped.forEach(l => {
+        if (checkIsOk(l.leaderCritical)) {
+            uniqueCriticalLeaders.add(l.leaderName);
+            if (!checkIsOk(l.leaderPDI)) criticalLeadersNoPDI.add(l.leaderName);
+        }
+        l.successors.forEach(s => {
+            const gap = checkGradeGap(l.leaderGrade, s.grade);
+            if (gap === 'inversion') {
+                inversions.push({ leaderName: l.leaderName, leaderPosition: l.leaderPosition, leaderGrade: l.leaderGrade, successorName: s.name, successorGrade: s.grade, readiness: s.readiness });
+            } else if (gap === 'high_jump') {
+                highJumps.push({ leaderName: l.leaderName, leaderPosition: l.leaderPosition, leaderGrade: l.leaderGrade, successorName: s.name, successorGrade: s.grade });
+            }
+        });
+    });
+    
+    State.filtered.forEach(d => {
+        if (d.successorName && isCriticalBox(d.successorBox) && !checkIsOk(d.hasPDI)) uniqueRisks.add(d.successorName);
+    });
+    
+    const strategicOrphans = grouped.filter(l => {
+        const isCritical = checkIsOk(l.leaderCritical);
+        const hasImmediate = l.successors.some(s => getReadinessCategory(s.readiness) === 'Imediato');
+        return isCritical && !hasImmediate;
+    });
+    
+    const keyPosEmptyList = grouped.filter(l => l.successors.length === 0 && checkIsOk(l.isKeyPosition));
+    const emptyPositions = grouped.filter(l => l.successors.length === 0);
+    const coveragePct = totalPositions ? (covered / totalPositions) * 100 : 0;
+    const positionsWithReadyNow = grouped.filter(l => l.successors.some(s => getReadinessCategory(s.readiness) === 'Imediato')).length;
+    const readinessPct = totalPositions ? (positionsWithReadyNow / totalPositions) * 100 : 0;
+    // Penalidade limitada: máx 20 pts, independente do número de órfãos
+    const orphanPenalty = Math.min(20, strategicOrphans.length * 2);
+    // Score: média ponderada dos 3 pilares menos penalidade limitada
+    const healthScore = Math.max(0, Math.round((coveragePct * 0.35) + (readinessPct * 0.30) + (pdiPct * 0.35) - orphanPenalty));
+    
+    // Grade 12+
+    const grade12Plus = grouped.filter(l => { const g = parseInt(l.leaderGrade); return !isNaN(g) && g >= 12; });
+    const grade12PlusCovered = grade12Plus.filter(l => l.successors.length > 0).length;
+    const grade12PlusPct = grade12Plus.length ? Math.round((grade12PlusCovered / grade12Plus.length) * 100) : 0;
+    
+    // Critical leaders
+    const critLeaders = grouped.filter(l => checkIsOk(l.leaderCritical));
+    const critCovered = critLeaders.filter(l => l.successors.length > 0).length;
+    const critPct = critLeaders.length ? Math.round((critCovered / critLeaders.length) * 100) : 0;
+    
+    // Key Positions
+    const keyPosLeaders = grouped.filter(l => checkIsOk(l.isKeyPosition));
+    const keyPosCovered = keyPosLeaders.filter(l => l.successors.length > 0).length;
+    const keyPosPct = keyPosLeaders.length ? Math.round((keyPosCovered / keyPosLeaders.length) * 100) : 0;
+    
+    // PDI Geral
+    const uniquePpl = new Map();
+    State.filtered.forEach(d => { if (d.leaderName) uniquePpl.set(d.leaderName, checkIsOk(d.leaderPDI)); });
+    const totalPDI = Array.from(uniquePpl.values()).filter(Boolean).length;
+    const totalPpl = uniquePpl.size;
+    const pdiSystemPct = totalPpl ? Math.round((totalPDI / totalPpl) * 100) : 0;
+    
+    // Sobrecarregados
+    const nomCounts = getNominationsCount();
+    const overloaded = Object.entries(nomCounts).filter(([n, c]) => c > 4).map(([n, c]) => ({ name: n, count: c }));
+    
+    // Score por área
+    const areaScores = {};
+    State.filtered.forEach(r => {
+        const area = r.area || 'N/A';
+        if (!areaScores[area]) areaScores[area] = { total: 0, covered: 0, readyNow: 0, pdiSuccOk: 0, pdiSuccTotal: 0, orphans: 0 };
+        const s = areaScores[area];
+        s.total++;
+    });
+    // Usa grouped para calcular por área
+    grouped.forEach(l => {
+        const area = l.area || 'N/A';
+        if (!areaScores[area]) areaScores[area] = { total: 0, covered: 0, readyNow: 0, pdiSuccOk: 0, pdiSuccTotal: 0, orphans: 0 };
+        const s = areaScores[area];
+        if (l.successors.length > 0) s.covered++;
+        if (l.successors.some(sx => getReadinessCategory(sx.readiness) === 'Imediato')) s.readyNow++;
+        if (checkIsOk(l.leaderCritical) && !l.successors.some(sx => getReadinessCategory(sx.readiness) === 'Imediato')) s.orphans++;
+        l.successors.forEach(sx => {
+            if (checkIsOk(l.leaderCritical)) { s.pdiSuccTotal++; if (checkIsOk(sx.hasPDI)) s.pdiSuccOk++; }
+        });
+    });
+    const areaHealthMap = {};
+    Object.entries(areaScores).forEach(([area, s]) => {
+        const t = s.total || 1;
+        const covP = (s.covered / t) * 100;
+        const rdyP = (s.readyNow / t) * 100;
+        const pdiP = s.pdiSuccTotal ? (s.pdiSuccOk / s.pdiSuccTotal) * 100 : pdiPct;
+        const pen  = Math.min(20, s.orphans * 2);
+        const score = Math.max(0, Math.round(covP * 0.35 + rdyP * 0.30 + pdiP * 0.35 - pen));
+        areaHealthMap[area] = { score, covered: s.covered, total: s.total, covPct: Math.round(covP), orphans: s.orphans };
+    });
+    
+    return {
+        totalPositions, coveragePct: Math.round(coveragePct), readinessPct: Math.round(readinessPct),
+        pdiPct, orphanPenalty, criticalLeaderCount: uniqueCriticalLeaders.size,
+        criticalLeaderNoPdiCount: criticalLeadersNoPDI.size, readyNowCount: positionsWithReadyNow,
+        orphanList: strategicOrphans, emptyList: emptyPositions, keyPosEmptyList,
+        orphanCount: strategicOrphans.length, healthScore, inversions, highJumps,
+        grade12PlusCovered, grade12PlusTotal: grade12Plus.length, grade12PlusPct,
+        critCovered, critTotal: critLeaders.length, critPct,
+        keyPosCovered, keyPosTotal: keyPosLeaders.length, keyPosPct,
+        totalPDI, totalPpl, pdiSystemPct, overloaded, areaHealthMap
+    };
+}
+
+// ============================================================
+// RENDER: SAÚDE DO PIPELINE
+// ============================================================
+VIEW_RENDERS['health'] = function() { renderHealth(); };
+VIEW_RENDERS['keypos'] = function() { renderKeyPos(); };
+
+function renderHealth() {
+    const m = getMetrics();
+    
+    document.getElementById('health-score-value').innerText = m.healthScore;
+    document.getElementById('health-cov').innerText = m.coveragePct + '%';
+    document.getElementById('health-ready').innerText = m.readinessPct + '%';
+    document.getElementById('health-pdi').innerText = m.pdiPct + '%';
+    document.getElementById('health-penalty').innerText = '-' + m.orphanPenalty + ' pts';
+    const penRow = document.getElementById('health-penalty-row');
+    if (penRow) penRow.style.display = m.orphanPenalty > 0 ? '' : 'none';
+    
+    const circle = document.getElementById('health-score-circle');
+    const label = document.getElementById('health-score-label');
+    if (!circle || !label) return;
+    
+    let borderColor, bgColor, textColor, txtLabel;
+    if (m.healthScore >= 90) {
+        borderColor='#AABF3E'; bgColor='#F5F9E8'; textColor='#AABF3E'; txtLabel='Excelência';
+    } else if (m.healthScore >= 75) {
+        borderColor='#C8D87A'; bgColor='#F5F9E8'; textColor='#AABF3E'; txtLabel='Saudável';
+    } else if (m.healthScore >= 60) {
+        borderColor='#B27A59'; bgColor='#FBF5EE'; textColor='#B27A59'; txtLabel='Em Construção';
+    } else {
+        borderColor='#C46060'; bgColor='#FAF0F0'; textColor='#7D2D2D'; txtLabel='Crítico';
+    }
+    circle.style.borderColor = borderColor;
+    circle.style.background  = bgColor;
+    document.getElementById('health-score-value').style.color = textColor;
+    label.innerText = txtLabel; label.style.color = textColor;
+    
+    // Score por área
+    const areaList = document.getElementById('health-area-list');
+    areaList.innerHTML = '';
+    const areaEntries = Object.entries(m.areaHealthMap).sort((a,b) => a[1].score - b[1].score);
+    areaEntries.forEach(([area, v]) => {
+        const sc = v.score;
+        const color = sc >= 75 ? '#AABF3E' : sc >= 60 ? '#B27A59' : '#7D2D2D';
+        const barColor = sc >= 75 ? 'bg-emerald-500' : sc >= 60 ? 'bg-amber-500' : 'bg-rose-500';
+        areaList.innerHTML += `
+            <div>
+                <div class="flex justify-between items-baseline mb-1.5">
+                    <span class="text-xs font-medium text-slate-700 truncate">${area}</span>
+                    <div class="flex items-center gap-3 ml-2">
+                        <span class="text-xs text-slate-400">${v.covered}/${v.total}</span>
+                        <span class="text-base font-extrabold" style="color:${color}">${sc}</span>
+                    </div>
+                </div>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full ${barColor}" style="width:${sc}%"></div>
+                </div>
+            </div>`;
+    });
+    if (!areaList.innerHTML) areaList.innerHTML = '<div class="text-slate-400 text-xs">Sem dados</div>';
+    
+    // Recomendações
+    const rec = document.getElementById('health-recommendations');
+    rec.innerHTML = '';
+    if (m.coveragePct < 80) rec.innerHTML += `<div class="p-3 bg-rose-50 border border-rose-100 rounded-lg flex gap-3"><i class="ph ph-warning text-rose-600 text-lg mt-0.5"></i><div><div class="text-sm font-bold text-rose-900 mb-1">Baixa Cobertura (${m.coveragePct}%)</div><div class="text-xs text-rose-800">Inicie mapeamento para as cadeiras vazias prioritárias.</div></div></div>`;
+    if (m.orphanCount > 0) rec.innerHTML += `<div class="p-3 bg-orange-50 border border-orange-100 rounded-lg flex gap-3"><i class="ph ph-shield-warning text-orange-600 text-lg mt-0.5"></i><div><div class="text-sm font-bold text-orange-900 mb-1">Orfandade Detectada (${m.orphanCount})</div><div class="text-xs text-orange-800">Talentos críticos sem sucessor imediato. Acelere desenvolvimento.</div></div></div>`;
+    if (m.readinessPct < 50) rec.innerHTML += `<div class="p-3 bg-amber-50 border border-amber-100 rounded-lg flex gap-3"><i class="ph ph-clock text-amber-600 text-lg mt-0.5"></i><div><div class="text-sm font-bold text-amber-900 mb-1">Pipeline Lento (${m.readinessPct}%)</div><div class="text-xs text-amber-800">Poucas posições com sucessor imediato. Reforce desenvolvimento acelerado.</div></div></div>`;
+    if (m.pdiPct < 60) rec.innerHTML += `<div class="p-3 bg-violet-50 border border-violet-100 rounded-lg flex gap-3"><i class="ph ph-clipboard-text text-violet-600 text-lg mt-0.5"></i><div><div class="text-sm font-bold text-violet-900 mb-1">PDI Defasado (${m.pdiPct}%)</div><div class="text-xs text-violet-800">Reforce formalização de PDI para sucessores de talentos críticos.</div></div></div>`;
+    if (m.healthScore >= 75 && m.orphanCount === 0) rec.innerHTML += `<div class="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex gap-3"><i class="ph ph-check-circle text-emerald-600 text-lg mt-0.5"></i><div><div class="text-sm font-bold text-emerald-900 mb-1">Pipeline Saudável</div><div class="text-xs text-emerald-800">Foque em manter a qualidade dos PDIs e cobertura das Key Positions.</div></div></div>`;
+    if (!rec.innerHTML) rec.innerHTML = '<div class="p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-600">Sem alertas críticos no filtro atual.</div>';
+}
+
+function renderKeyPos() {
+    const grouped = getGroupedByLeader();
+    const kpLeaders = grouped.filter(l => checkIsOk(l.isKeyPosition));
+    const kpTotal = kpLeaders.length;
+    const kpCovered = kpLeaders.filter(l => l.successors.length > 0).length;
+    const kpImmediate = kpLeaders.filter(l => l.successors.some(s => getReadinessCategory(s.readiness) === 'Imediato')).length;
+    const kpEmpty = kpLeaders.filter(l => l.successors.length === 0).length;
+    
+    const setV = (id, v) => { const el = document.getElementById(id); if(el) el.innerText = v; };
+    setV('kp-total', kpTotal);
+    setV('kp-covered', kpCovered);
+    setV('kp-covered-pct', kpTotal ? Math.round(kpCovered/kpTotal*100)+'% de cobertura' : '-');
+    setV('kp-immediate', kpImmediate);
+    setV('kp-immediate-pct', kpTotal ? Math.round(kpImmediate/kpTotal*100)+'% prontas agora' : '-');
+    setV('kp-empty', kpEmpty);
+    
+    const container = document.getElementById('kp-cards-container');
+    container.innerHTML = '';
+    
+    // Ordena: descobertas primeiro, depois por nome
+    kpLeaders.sort((a, b) => {
+        if (a.successors.length === 0 && b.successors.length > 0) return -1;
+        if (a.successors.length > 0 && b.successors.length === 0) return 1;
+        return (a.leaderPosition || '').localeCompare(b.leaderPosition || '');
+    });
+    
+    kpLeaders.forEach(l => {
+        const isEmpty = l.successors.length === 0;
+        const hasImmediate = l.successors.some(s => getReadinessCategory(s.readiness) === 'Imediato');
+        const isCrit = checkIsOk(l.leaderCritical);
+        
+        const statusBadge = isEmpty
+            ? '<span class="badge badge-red"><i class="ph ph-x-circle"></i> Descoberta</span>'
+            : hasImmediate
+                ? '<span class="badge badge-green"><i class="ph ph-check-circle"></i> Sucessor Imediato</span>'
+                : '<span class="badge badge-yellow"><i class="ph ph-clock"></i> Em Formação</span>';
+        
+        const critBadge = isCrit ? '<span class="badge badge-yellow"><i class="ph-fill ph-star"></i> Talento Crítico</span>' : '';
+        const pdiBadge = checkIsOk(l.leaderPDI) ? '<span class="badge badge-green">PDI Ativo</span>' : '<span class="badge badge-gray">Sem PDI</span>';
+        
+        const succsHTML = isEmpty
+            ? '<div class="text-xs text-rose-500 italic font-medium px-3 py-2 bg-rose-50 rounded">Nenhum sucessor mapeado — prioridade máxima</div>'
+            : l.successors.sort((a,b) => getReadinessWeight(a.readiness) - getReadinessWeight(b.readiness)).map(s => {
+                const rStyle = getReadinessStyle(s.readiness);
+                const star = s.isCritical ? '<i class="ph-fill ph-star text-amber-400"></i>' : '';
+                const pdi = checkIsOk(s.hasPDI) ? '<span class="status-dot status-yes" title="PDI"></span>' : '<span class="status-dot status-no"></span>';
+                const overload = s.nominationCount > 4 ? '<i class="ph ph-lightning text-purple-500" title="Sobrecarregado"></i>' : '';
+                return `<div class="successor-row">
+                    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-slate-800">${s.name}</span>${star}${overload}</div>
+                    <div class="flex items-center gap-2">
+                        <span class="ready-pill ${rStyle.bgClass} ${rStyle.textClass}">${rStyle.label}</span>
+                        <span class="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">G${s.grade}</span>
+                        ${pdi}
+                    </div>
+                </div>`;
+            }).join('');
+        
+        container.innerHTML += `
+            <div class="leader-card" style="${isEmpty ? 'border-left: 3px solid var(--danger);' : hasImmediate ? 'border-left: 3px solid var(--success);' : ''}">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="md:w-1/3 md:border-r md:pr-4 border-slate-100">
+                        <div class="flex flex-wrap gap-2 items-center mb-2">
+                            <i class="ph-fill ph-target" style="color:var(--accent); font-size:1.1rem;"></i>
+                            ${statusBadge}
+                        </div>
+                        <h4 class="font-bold text-slate-900 text-sm mb-1">${l.leaderName}</h4>
+                        <p class="text-xs text-blue-700 font-medium mb-2">${l.leaderPosition}</p>
+                        <p class="text-[10px] text-slate-400">${l.area} · Grade ${l.leaderGrade}</p>
+                        <div class="flex flex-wrap gap-1.5 mt-3">${critBadge} ${pdiBadge}</div>
+                    </div>
+                    <div class="flex-1 space-y-1.5">${succsHTML}</div>
+                </div>
+            </div>`;
+    });
+    
+    if (!container.innerHTML) container.innerHTML = '<div class="section-block text-center text-slate-400 py-8">Nenhuma Key Position no filtro atual</div>';
+}
+
+// ============================================================
+// RENDER: VISÃO EXECUTIVA
+// ============================================================
+function renderExec() {
+    const m = getMetrics();
+    
+    document.getElementById('exec-g12').innerText = m.grade12PlusPct + '%';
+    document.getElementById('exec-g12-sub').innerText = `${m.grade12PlusCovered} de ${m.grade12PlusTotal} mapeados`;
+    
+    document.getElementById('exec-crit').innerText = m.critPct + '%';
+    document.getElementById('exec-crit-sub').innerText = `${m.critCovered} de ${m.critTotal} mapeados`;
+    
+    document.getElementById('exec-key').innerText = m.keyPosPct + '%';
+    document.getElementById('exec-key-sub').innerText = `${m.keyPosCovered} de ${m.keyPosTotal} mapeadas`;
+    
+    document.getElementById('exec-pdi').innerText = m.pdiSystemPct + '%';
+    document.getElementById('exec-pdi-sub').innerText = `${m.totalPDI} de ${m.totalPpl} líderes`;
+    
+    // Cobertura geral (donut)
+    const covered = m.totalPositions - m.emptyList.length;
+    renderDoughnut('chart-exec-cov', ['Coberto', 'Sem Sucessor'], [covered, m.emptyList.length], [Colors.success, '#EAECEC']);
+    
+    // Distribuição de prontidão
+    const grouped = getGroupedByLeader();
+    const readyDist = { 'Imediato': 0, '1-2 anos': 0, '2-3 anos': 0, '3-5 anos': 0, '4-6 anos': 0, 'Em Formação': 0 };
+    grouped.forEach(l => l.successors.forEach(s => {
+        const cat = getReadinessCategory(s.readiness);
+        if (readyDist[cat] !== undefined) readyDist[cat]++;
+    }));
+    renderBar('chart-exec-ready', Object.keys(readyDist), Object.values(readyDist),
+        Object.keys(readyDist).map(k => READINESS_CONFIG[k].hex));
+}
+
+// ============================================================
+// RENDER: COBERTURA
+// ============================================================
+function setCovFilter(val) {
+    if (val === 'All') State.coverageTimeFilter = ['All'];
+    else {
+        let newF = State.coverageTimeFilter.includes('All') ? [] : [...State.coverageTimeFilter];
+        if (newF.includes(val)) newF = newF.filter(x => x !== val);
+        else newF.push(val);
+        if (newF.length === 0) newF = ['All'];
+        State.coverageTimeFilter = newF;
+    }
+    document.querySelectorAll('.ready-filter-btn').forEach(b => {
+        if (State.coverageTimeFilter.includes(b.dataset.val)) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+    renderCoverage();
+}
+
+function renderCoverage() {
+    const grouped = getGroupedByLeader();
+    let covered;
+    if (State.coverageTimeFilter.includes('All')) {
+        covered = grouped.filter(l => l.successors.length > 0).length;
+    } else {
+        covered = grouped.filter(l => l.successors.some(s => State.coverageTimeFilter.includes(getReadinessCategory(s.readiness)))).length;
+    }
+    const total = grouped.length;
+    const pct = total ? Math.round((covered / total) * 100) : 0;
+    
+    renderDoughnut('chart-cov-pie', ['Coberto', 'Gap'], [covered, total - covered], [Colors.indigo, '#EAECEC']);
+    document.getElementById('cov-text').innerText = `${covered} de ${total} posições · ${pct}%`;
+    
+    // Tabela
+    const tb = document.querySelector('#cov-table tbody');
+    tb.innerHTML = '';
+    grouped.forEach(l => {
+        const isCovered = State.coverageTimeFilter.includes('All')
+            ? l.successors.length > 0
+            : l.successors.some(s => State.coverageTimeFilter.includes(getReadinessCategory(s.readiness)));
+        const statusBadge = isCovered
+            ? '<span class="badge badge-green"><i class="ph ph-check"></i> Coberto</span>'
+            : '<span class="badge badge-red"><i class="ph ph-warning"></i> Gap</span>';
+        tb.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${l.leaderPosition}</td>
+            <td>${l.leaderName}</td>
+            <td class="text-center text-slate-500 text-xs">${l.leaderGrade || '-'}</td>
+            <td class="text-center"><span class="badge badge-indigo">${l.successors.length}</span></td>
+            <td class="text-center">${statusBadge}</td>
+        </tr>`;
+    });
+    if (!tb.innerHTML) tb.innerHTML = '<tr><td colspan="5" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+}
+
+// ============================================================
+// RENDER: ORFANDADE
+// ============================================================
+function renderOrphan() {
+    const m = getMetrics();
+    
+    document.getElementById('orph-crit-count').innerText = m.orphanList.length;
+    const critList = document.getElementById('orph-crit-list');
+    critList.innerHTML = '';
+    if (m.orphanList.length === 0) {
+        critList.innerHTML = '<div class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm flex gap-2 items-center"><i class="ph ph-check-circle"></i> Ótimo: nenhum talento crítico em orfandade.</div>';
+    } else {
+        m.orphanList.forEach(l => {
+            critList.innerHTML += `<div class="bg-white border border-rose-100 rounded-lg p-3 flex justify-between items-center hover:border-rose-300 transition">
+                <div class="flex items-center gap-3">
+                    <i class="ph-fill ph-star text-amber-400 text-lg"></i>
+                    <div>
+                        <div class="font-semibold text-slate-900 text-sm">${l.leaderName}</div>
+                        <div class="text-xs text-slate-500">${l.leaderPosition}</div>
+                    </div>
+                </div>
+                <span class="badge badge-red">Sem Sucessor Imediato</span>
+            </div>`;
+        });
+    }
+    
+    document.getElementById('orph-keypos-count').innerText = m.keyPosEmptyList.length;
+    const keyList = document.getElementById('orph-keypos-list');
+    keyList.innerHTML = '';
+    if (m.keyPosEmptyList.length === 0) {
+        keyList.innerHTML = '<div class="col-span-3 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">Todas as key positions têm sucessores.</div>';
+    } else {
+        m.keyPosEmptyList.forEach(l => {
+            keyList.innerHTML += `<div class="bg-white border border-amber-100 rounded-lg p-3 hover:border-amber-300 transition">
+                <div class="font-semibold text-slate-900 text-sm mb-1">${l.leaderPosition}</div>
+                <div class="text-xs text-slate-500 mb-2">Ocupante: ${l.leaderName}</div>
+                <span class="badge badge-orange">Vaga sem Sucessor</span>
+            </div>`;
+        });
+    }
+}
+
+// ============================================================
+// RENDER: RISCOS
+// ============================================================
+function renderRisks() {
+    const m = getMetrics();
+    
+    // Cadeiras vazias
+    const emptyList = document.getElementById('risk-empty-list');
+    emptyList.innerHTML = '';
+    if (m.emptyList.length === 0) {
+        emptyList.innerHTML = '<div class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">Todas as posições possuem sucessores mapeados.</div>';
+    } else {
+        m.emptyList.forEach(l => {
+            const keyBadge = checkIsOk(l.isKeyPosition) ? '<span class="badge badge-cyan ml-2">Key</span>' : '';
+            emptyList.innerHTML += `<div class="bg-white border border-slate-100 rounded-lg p-3 flex justify-between items-center hover:border-slate-300 transition">
+                <div>
+                    <div class="font-semibold text-slate-900 text-sm">${l.leaderPosition} ${keyBadge}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">Ocupante: ${l.leaderName} · Grade ${l.leaderGrade}</div>
+                </div>
+                <span class="badge badge-gray">Nenhum sucessor</span>
+            </div>`;
+        });
+    }
+    
+    // Inversões
+    document.getElementById('risk-inv-count').innerText = m.inversions.length;
+    const invList = document.getElementById('risk-inv-list');
+    invList.innerHTML = '';
+    if (m.inversions.length === 0) {
+        invList.innerHTML = '<div class="col-span-2 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">Nenhuma inversão detectada.</div>';
+    } else {
+        m.inversions.forEach(inv => {
+            invList.innerHTML += `<div class="bg-white border border-sky-100 rounded-lg p-3 hover:border-sky-300 transition">
+                <div class="flex justify-between items-start gap-3">
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Líder</div>
+                        <div class="text-sm font-semibold text-slate-700">${inv.leaderName}</div>
+                        <div class="text-xs text-slate-500">Grade ${inv.leaderGrade} · ${inv.leaderPosition}</div>
+                    </div>
+                    <i class="ph ph-arrow-right text-sky-300 mt-2"></i>
+                    <div class="text-right">
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Sucessor</div>
+                        <div class="text-sm font-semibold text-sky-700">${inv.successorName}</div>
+                        <div class="text-xs text-sky-600 bg-sky-50 inline-block px-2 py-0.5 rounded mt-0.5">Grade ${inv.successorGrade}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+    }
+    
+    // Sobrecarregados
+    document.getElementById('risk-over-count').innerText = m.overloaded.length;
+    const overList = document.getElementById('risk-over-list');
+    overList.innerHTML = '';
+    if (m.overloaded.length === 0) {
+        overList.innerHTML = '<div class="col-span-2 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">Nenhum sucessor sobrecarregado.</div>';
+    } else {
+        m.overloaded.sort((a, b) => b.count - a.count).forEach(o => {
+            overList.innerHTML += `<div class="bg-white border border-purple-100 rounded-lg p-3 flex justify-between items-center hover:border-purple-300 transition">
+                <div class="flex items-center gap-3">
+                    <i class="ph ph-lightning text-purple-500 text-lg"></i>
+                    <div class="font-semibold text-slate-900 text-sm">${o.name}</div>
+                </div>
+                <span class="badge badge-purple">${o.count} indicações</span>
+            </div>`;
+        });
+    }
+}
+
+// ============================================================
+// RENDER: POR LÍDER
+// ============================================================
+function renderByLeader() {
+    const grouped = getGroupedByLeader();
+    document.getElementById('lead-count').innerText = `${grouped.length} líderes únicos`;
+    
+    const container = document.getElementById('leader-cards-container');
+    container.innerHTML = '';
+    
+    grouped.sort((a, b) => (a.leaderName || '').localeCompare(b.leaderName || ''));
+    
+    grouped.forEach(l => {
+        const keyBadge = checkIsOk(l.isKeyPosition) ? '<span class="badge badge-cyan"><i class="ph ph-target"></i> Key Position</span>' : '';
+        const critBadge = checkIsOk(l.leaderCritical) ? '<span class="badge badge-yellow"><i class="ph-fill ph-star"></i> Talento Crítico</span>' : '';
+        const pdiBadge = checkIsOk(l.leaderPDI) ? '<span class="badge badge-green"><i class="ph ph-check"></i> PDI</span>' : '<span class="badge badge-gray">Sem PDI</span>';
+        
+        const succsHTML = l.successors.length === 0
+            ? '<div class="text-xs text-rose-500 italic font-medium px-3 py-2 bg-rose-50 rounded">Nenhum sucessor mapeado</div>'
+            : l.successors.sort((a, b) => getReadinessWeight(a.readiness) - getReadinessWeight(b.readiness)).map(s => {
+                const rStyle = getReadinessStyle(s.readiness);
+                const gap = checkGradeGap(l.leaderGrade, s.grade);
+                const star = s.isCritical ? '<i class="ph-fill ph-star text-amber-400" title="Talento Crítico"></i>' : '';
+                const gapIcon = gap === 'inversion' ? '<i class="ph ph-warning-octagon text-sky-500" title="Inversão de Grade"></i>'
+                    : gap === 'high_jump' ? '<i class="ph ph-warning-circle text-orange-500" title="Salto alto de Grade"></i>' : '';
+                const overload = s.nominationCount > 4 ? '<i class="ph ph-lightning text-purple-500" title="Sobrecarregado"></i>' : '';
+                const backfill = checkIsOk(s.backfill) ? '<span class="badge badge-green text-[9px]">Backfill</span>' : '';
+                const pdi = checkIsOk(s.hasPDI) ? '<span class="status-dot status-yes" title="PDI Ativo"></span>' : '<span class="status-dot status-no" title="Sem PDI"></span>';
+                
+                return `<div class="successor-row">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-xs font-semibold text-slate-800 truncate">${s.name}</span>
+                        ${star}${gapIcon}${overload}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="ready-pill ${rStyle.bgClass} ${rStyle.textClass}">${rStyle.label}</span>
+                        <span class="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">G${s.grade}</span>
+                        ${s.box !== 'N/A' && s.box ? `<span class="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">Box ${s.box}</span>` : ''}
+                        ${pdi}
+                        ${backfill}
+                    </div>
+                </div>`;
+            }).join('');
+        
+        const searchKey = `${l.leaderName} ${l.leaderPosition}`.toLowerCase();
+        container.innerHTML += `<div class="leader-card" data-search="${searchKey}">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="md:w-1/3 md:border-r md:pr-4 border-slate-100">
+                    <div class="flex items-start gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600 text-sm shrink-0">${(l.leaderName||'?').charAt(0)}</div>
+                        <div class="min-w-0">
+                            <h4 class="font-bold text-slate-900 text-sm truncate">${l.leaderName}</h4>
+                            <p class="text-xs text-blue-700 font-medium truncate">${l.leaderPosition}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">${l.area} · Grade ${l.leaderGrade}</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mt-3">
+                        ${keyBadge} ${critBadge} ${pdiBadge}
+                    </div>
+                </div>
+                <div class="flex-1 space-y-1.5">
+                    ${succsHTML}
+                </div>
+            </div>
+        </div>`;
+    });
+    
+    if (!container.innerHTML) container.innerHTML = '<div class="section-block text-center text-slate-400 py-8">Sem dados no filtro atual</div>';
+}
+
+function filterLeaderCards(term) {
+    const t = term.toLowerCase();
+    document.querySelectorAll('#leader-cards-container .leader-card').forEach(c => {
+        c.style.display = c.dataset.search.includes(t) ? '' : 'none';
+    });
+}
+
+// ============================================================
+// RENDER: POR POSIÇÃO
+// ============================================================
+function renderByPosition() {
+    const grouped = getGroupedByPosition();
+    document.getElementById('pos-count').innerText = `${grouped.length} posições únicas`;
+    
+    const container = document.getElementById('position-cards-container');
+    container.innerHTML = '';
+    
+    grouped.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    
+    grouped.forEach(p => {
+        const keyBadge = checkIsOk(p.isKeyPosition) ? '<span class="badge badge-cyan">Key Position</span>' : '';
+        
+        const occHTML = p.occupants.map(o => {
+            const star = o.isCritical ? '<i class="ph-fill ph-star text-amber-400 text-xs ml-1"></i>' : '';
+            return `<div class="badge badge-blue">${o.name} <span class="text-slate-400 font-mono">G${o.grade}</span>${star}</div>`;
+        }).join(' ');
+        
+        const succHTML = p.successors.length === 0
+            ? '<div class="text-xs text-rose-500 italic font-medium px-3 py-2 bg-rose-50 rounded">Posição vazia · sem sucessores</div>'
+            : p.successors.map(s => {
+                const rStyle = getReadinessStyle(s.readiness);
+                const star = s.isCritical ? '<i class="ph-fill ph-star text-amber-400" title="Crítico"></i>' : '';
+                const backfill = checkIsOk(s.backfill) ? '<span class="badge badge-green text-[9px]">Backfill</span>' : '';
+                return `<div class="successor-row">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-800">${s.name}</span>
+                        ${star}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="ready-pill ${rStyle.bgClass} ${rStyle.textClass}">${rStyle.label}</span>
+                        <span class="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">G${s.grade}</span>
+                        ${backfill}
+                    </div>
+                </div>`;
+            }).join('');
+        
+        const searchKey = (p.name || '').toLowerCase();
+        container.innerHTML += `<div class="position-card" data-search="${searchKey}">
+            <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h4 class="font-bold text-slate-900 text-sm">${p.name}</h4>
+                    <span class="text-[10px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono">Grade ${p.grade || 'N/A'}</span>
+                    ${keyBadge}
+                </div>
+                <span class="badge badge-indigo">${p.successors.length} sucessor(es)</span>
+            </div>
+            <div class="mb-3">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Ocupantes Atuais</p>
+                <div class="flex flex-wrap gap-1.5">${occHTML || '<span class="text-xs text-slate-400 italic">Sem ocupantes</span>'}</div>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Sucessores Mapeados</p>
+                <div class="space-y-1.5">${succHTML}</div>
+            </div>
+        </div>`;
+    });
+    
+    if (!container.innerHTML) container.innerHTML = '<div class="section-block text-center text-slate-400 py-8">Sem dados no filtro atual</div>';
+}
+
+function filterPositionCards(term) {
+    const t = term.toLowerCase();
+    document.querySelectorAll('#position-cards-container .position-card').forEach(c => {
+        c.style.display = c.dataset.search.includes(t) ? '' : 'none';
+    });
+}
+
+// ============================================================
+// RENDER: POR SUCESSOR
+// ============================================================
+function renderBySuccessor() {
+    const grouped = getGroupedBySuccessor();
+    document.getElementById('succ-count').innerText = `${grouped.length} sucessores únicos`;
+    
+    const container = document.getElementById('successor-cards-container');
+    container.innerHTML = '';
+    
+    grouped.forEach(s => {
+        const star = s.isCritical ? '<i class="ph-fill ph-star text-amber-400" title="Crítico"></i>' : '';
+        const overload = s.nominationCount > 4 ? '<i class="ph ph-lightning text-purple-500" title="Sobrecarregado"></i>' : '';
+        const pdiBadge = checkIsOk(s.hasPDI) ? '<span class="badge badge-green"><i class="ph ph-check"></i> PDI Ativo</span>' : '<span class="badge badge-red">Sem PDI</span>';
+        
+        const nomsHTML = s.nominations.map(n => {
+            const rStyle = getReadinessStyle(n.readiness);
+            const gap = checkGradeGap(n.grade, s.grade);
+            const gapIcon = gap === 'inversion' ? '<i class="ph ph-warning-octagon text-sky-500" title="Inversão"></i>'
+                : gap === 'high_jump' ? '<i class="ph ph-warning-circle text-orange-500" title="Salto alto"></i>' : '';
+            const critIcon = checkIsOk(n.leaderCritical) ? '<i class="ph-fill ph-star text-amber-400" title="Líder Crítico"></i>' : '';
+            return `<div class="successor-row">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-slate-800 truncate">${n.position}</span>
+                        ${critIcon}${gapIcon}
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">Ocupante: ${n.incumbent} · Grade ${n.grade}</div>
+                </div>
+                <span class="ready-pill ${rStyle.bgClass} ${rStyle.textClass}">${rStyle.label}</span>
+            </div>`;
+        }).join('');
+        
+        const searchKey = (s.name || '').toLowerCase();
+        container.innerHTML += `<div class="successor-card" data-search="${searchKey}">
+            <div class="flex justify-between items-start mb-3 pb-3 border-b border-slate-100 gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center font-bold text-slate-600 text-sm shrink-0">${(s.name||'?').charAt(0)}</div>
+                    <div class="min-w-0">
+                        <h4 class="font-bold text-slate-900 text-sm truncate">${s.name} ${star}${overload}</h4>
+                        <div class="text-[10px] text-slate-500 mt-0.5">Grade ${s.grade} · ${s.mobility || 'Mobilidade N/A'}</div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-1.5 justify-end">
+                    ${pdiBadge}
+                    <span class="badge badge-indigo">${s.nominations.length} indicações</span>
+                </div>
+            </div>
+            <div class="space-y-1.5">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Posições Mapeadas</p>
+                ${nomsHTML}
+            </div>
+        </div>`;
+    });
+    
+    if (!container.innerHTML) container.innerHTML = '<div class="section-block text-center text-slate-400 py-8">Sem dados no filtro atual</div>';
+}
+
+function filterSuccessorCards(term) {
+    const t = term.toLowerCase();
+    document.querySelectorAll('#successor-cards-container .successor-card').forEach(c => {
+        c.style.display = c.dataset.search.includes(t) ? '' : 'none';
+    });
+}
+
+// ============================================================
+// RENDER: MAPA VISUAL
+// ============================================================
+function renderMap() {
+    const posMap = new Map();
+    State.filtered.forEach(d => {
+        if (!d.leaderPosition) return;
+        if (!posMap.has(d.leaderPosition)) {
+            posMap.set(d.leaderPosition, {
+                position: d.leaderPosition,
+                isKeyPosition: checkIsOk(d.isKeyPosition),
+                occupants: new Map(),
+                successors: new Map()
+            });
+        }
+        const entry = posMap.get(d.leaderPosition);
+        if (d.leaderName && !entry.occupants.has(d.leaderName)) {
+            entry.occupants.set(d.leaderName, {
+                name: d.leaderName, grade: d.leaderGrade,
+                isCritical: checkIsOk(d.leaderCritical), pdi: d.leaderPDI
+            });
+        }
+        if (d.successorName && !entry.successors.has(d.successorName)) {
+            entry.successors.set(d.successorName, {
+                name: d.successorName, readiness: d.readiness, grade: d.successorGrade,
+                isCritical: isCriticalBox(d.successorBox), hasPDI: d.hasPDI,
+                bucket: getReadinessCategory(d.readiness)
+            });
+        }
+    });
+    
+    const positions = Array.from(posMap.values());
+    const lanes = [
+        { label: 'Imediato', class: 'lane-immediate', buckets: ['Imediato'] },
+        { label: 'Curto Prazo (1-2 anos)', class: 'lane-short', buckets: ['1-2 anos'] },
+        { label: 'Médio Prazo (2-3 anos)', class: 'lane-mid', buckets: ['2-3 anos'] },
+        { label: 'Longo Prazo', class: 'lane-long', buckets: ['3-5 anos', '4-6 anos', 'Em Formação', 'Outros'] }
+    ];
+    
+    let html = '<div style="overflow-x:auto;padding-bottom:.5rem"><div class="map-grid">';
+    
+    // Header
+    html += '<div class="map-header" style="background:white; color:var(--text-main); text-align:left;">Cadeira (Ocupante)</div>';
+    lanes.forEach(l => {
+        html += `<div class="map-header ${l.class}">${l.label}</div>`;
+    });
+    
+    // Rows
+    positions.forEach(pos => {
+        const keyBadge = pos.isKeyPosition ? '<span class="badge badge-cyan text-[9px] ml-1">Key</span>' : '';
+        
+        let occHTML = '';
+        Array.from(pos.occupants.values()).forEach(occ => {
+            const star = occ.isCritical ? '<i class="ph-fill ph-star text-amber-400 text-xs"></i>' : '';
+            const pdi = checkIsOk(occ.pdi) ? '<span class="status-dot status-yes"></span>' : '<span class="status-dot status-no"></span>';
+            occHTML += `<div class="flex items-center justify-between p-1.5 bg-white border border-slate-100 rounded mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold text-slate-600 shrink-0">${(occ.name||'?').charAt(0)}</div>
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-semibold text-slate-700 truncate">${occ.name}</div>
+                        <div class="text-[9px] text-slate-400">G${occ.grade}</div>
+                    </div>
+                </div>
+                <div class="flex gap-1 items-center shrink-0">${star}${pdi}</div>
+            </div>`;
+        });
+        
+        html += `<div class="map-cell map-cell-position">
+            <div class="font-semibold text-slate-900 text-xs mb-2 flex items-center flex-wrap gap-1">${pos.position} ${keyBadge}</div>
+            ${occHTML}
+        </div>`;
+        
+        const succsArr = Array.from(pos.successors.values());
+        lanes.forEach(lane => {
+            const filtered = succsArr.filter(s => lane.buckets.includes(s.bucket));
+            const cellHTML = filtered.map(s => {
+                const star = s.isCritical ? '<i class="ph-fill ph-star text-amber-400 text-[10px]"></i>' : '';
+                const pdi = checkIsOk(s.hasPDI) ? '<span class="status-dot status-yes"></span>' : '<span class="status-dot status-no"></span>';
+                return `<div class="map-successor-card">
+                    <div class="font-semibold text-slate-800 truncate mb-1">${s.name}</div>
+                    <div class="flex justify-between items-center text-[10px] text-slate-500">
+                        <span class="font-mono">G${s.grade}</span>
+                        <div class="flex gap-1 items-center">${star}${pdi}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            html += `<div class="map-cell">${cellHTML}</div>`;
+        });
+    });
+    
+    html += '</div>';
+    
+    if (positions.length === 0) {
+        html = '<div class="p-8 text-center text-slate-400">Sem dados no filtro atual</div>';
+    }
+    
+    document.getElementById('map-content').innerHTML = html;
+}
+
+// ============================================================
+// RENDER: PDI
+// ============================================================
+function renderPDI() {
+    // Dados únicos de líderes
+    const uniqueLeaders = new Map();
+    State.filtered.forEach(d => {
+        if (d.leaderName && !uniqueLeaders.has(d.leaderName)) {
+            uniqueLeaders.set(d.leaderName, {
+                name: d.leaderName, position: d.leaderPosition, grade: d.leaderGrade,
+                pdiStatus: d.leaderPDI, isCritical: checkIsOk(d.leaderCritical),
+                area: d.area || 'N/A'
+            });
+        }
+    });
+    const allLeaders = Array.from(uniqueLeaders.values());
+    const criticalLeaders = allLeaders.filter(l => l.isCritical);
+    
+    // KPI Críticos
+    const critOk = criticalLeaders.filter(l => checkIsOk(l.pdiStatus)).length;
+    const critPct = criticalLeaders.length > 0 ? Math.round((critOk / criticalLeaders.length) * 100) : 0;
+    document.getElementById('pdi-crit-pct').innerText = critPct + '%';
+    document.getElementById('pdi-crit-sub').innerText = `${critOk} de ${criticalLeaders.length} com PDI ativo`;
+    
+    // Sucessores de Críticos
+    const succsOfCrit = new Map();
+    State.filtered.forEach(d => {
+        if (d.successorName && checkIsOk(d.leaderCritical)) {
+            const key = `${d.successorName}-${d.leaderName}`;
+            if (!succsOfCrit.has(key)) {
+                succsOfCrit.set(key, { successorName: d.successorName, successorPDI: d.hasPDI, leaderName: d.leaderName, leaderPosition: d.leaderPosition });
+            }
+        }
+    });
+    const succsList = Array.from(succsOfCrit.values());
+    const succOk = succsList.filter(s => checkIsOk(s.successorPDI)).length;
+    const succPct = succsList.length > 0 ? Math.round((succOk / succsList.length) * 100) : 0;
+    document.getElementById('pdi-succ-pct').innerText = succPct + '%';
+    document.getElementById('pdi-succ-sub').innerText = `${succOk} de ${succsList.length} com PDI ativo`;
+    
+    // Tabela críticos
+    const tbCrit = document.querySelector('#pdi-crit-table tbody');
+    tbCrit.innerHTML = '';
+    criticalLeaders.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(l => {
+        const dot = checkIsOk(l.pdiStatus) ? '<span class="status-dot status-yes"></span>' : '<span class="status-dot status-no"></span>';
+        const lbl = checkIsOk(l.pdiStatus) ? '<span class="text-emerald-700 font-semibold text-[10px]">Em Dia</span>' : '<span class="text-rose-700 font-semibold text-[10px]">Atenção</span>';
+        tbCrit.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${l.name}</td>
+            <td class="text-xs">${l.position}</td>
+            <td class="text-center">${dot} ${lbl}</td>
+        </tr>`;
+    });
+    if (!tbCrit.innerHTML) tbCrit.innerHTML = '<tr><td colspan="3" class="text-center text-slate-400 py-3">Sem críticos</td></tr>';
+    
+    // Tabela sucessores de críticos
+    const tbSucc = document.querySelector('#pdi-succ-table tbody');
+    tbSucc.innerHTML = '';
+    succsList.sort((a, b) => (a.successorName || '').localeCompare(b.successorName || '')).forEach(s => {
+        const dot = checkIsOk(s.successorPDI) ? '<span class="status-dot status-yes"></span>' : '<span class="status-dot status-no"></span>';
+        const lbl = checkIsOk(s.successorPDI) ? '<span class="text-emerald-700 font-semibold text-[10px]">Em Dia</span>' : '<span class="text-rose-700 font-semibold text-[10px]">Atenção</span>';
+        tbSucc.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${s.successorName}</td>
+            <td class="text-xs"><i class="ph-fill ph-star text-amber-400"></i> ${s.leaderName}</td>
+            <td class="text-center">${dot} ${lbl}</td>
+        </tr>`;
+    });
+    if (!tbSucc.innerHTML) tbSucc.innerHTML = '<tr><td colspan="3" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+    
+    // PDI por Área
+    const areaMap = new Map();
+    allLeaders.forEach(l => {
+        if (!areaMap.has(l.area)) areaMap.set(l.area, { total: 0, ok: 0 });
+        const e = areaMap.get(l.area);
+        e.total++;
+        if (checkIsOk(l.pdiStatus)) e.ok++;
+    });
+    const areaStats = Array.from(areaMap.entries()).map(([name, v]) => ({
+        name, total: v.total, ok: v.ok, pct: v.total > 0 ? Math.round(v.ok / v.total * 100) : 0
+    })).sort((a, b) => b.pct - a.pct);
+    
+    const areaGrid = document.getElementById('pdi-area-grid');
+    areaGrid.innerHTML = '';
+    areaStats.forEach(a => {
+        const colorClass = a.pct >= 80 ? 'text-emerald-600' : a.pct >= 50 ? 'text-indigo-600' : 'text-rose-600';
+        const barColor = a.pct >= 80 ? 'bg-emerald-500' : a.pct >= 50 ? 'bg-indigo-500' : 'bg-rose-500';
+        areaGrid.innerHTML += `<div class="bg-white border border-slate-100 rounded-lg p-3">
+            <div class="flex justify-between items-start mb-1.5">
+                <span class="text-[10px] font-semibold text-slate-500 uppercase truncate" title="${a.name}">${a.name}</span>
+                <span class="text-[10px] font-mono text-slate-400">${a.ok}/${a.total}</span>
+            </div>
+            <div class="text-2xl font-extrabold ${colorClass}">${a.pct}%</div>
+            <div class="w-full h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
+                <div class="h-full rounded-full ${barColor}" style="width:${a.pct}%"></div>
+            </div>
+        </div>`;
+    });
+    
+    // Tabela geral
+    const tbAll = document.querySelector('#pdi-all-table tbody');
+    tbAll.innerHTML = '';
+    allLeaders.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(l => {
+        const crit = l.isCritical ? '<i class="ph-fill ph-star text-amber-400"></i>' : '<span class="text-slate-300">-</span>';
+        const badge = checkIsOk(l.pdiStatus) ? '<span class="badge badge-green">PDI Ativo</span>' : '<span class="badge badge-red">Sem PDI</span>';
+        tbAll.innerHTML += `<tr>
+            <td class="font-medium text-slate-900">${l.name}</td>
+            <td>${l.area}</td>
+            <td class="text-center text-xs text-slate-500">${l.grade}</td>
+            <td class="text-center">${crit}</td>
+            <td class="text-center">${badge}</td>
+        </tr>`;
+    });
+    if (!tbAll.innerHTML) tbAll.innerHTML = '<tr><td colspan="5" class="text-center text-slate-400 py-3">Sem dados</td></tr>';
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+const Colors = {
+    indigo: '#0B2838', success: '#AABF3E', danger: '#7D2D2D',
+    purple: '#778689', accent: '#105FA2', warning: '#B27A59'
+};
+
+function renderDoughnut(id, labels, data, colors) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    if (State.charts[id]) State.charts[id].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts[id] = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: 'white' }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 10 } },
+                datalabels: {
+                    color: '#FFFFFF', font: { weight: 'bold', size: 12 },
+                    formatter: (val, ctx) => {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                        const pct = Math.round(val / total * 100);
+                        return val > 0 ? `${pct}%` : '';
+                    }
+                },
+                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#F4F6F5', bodyColor: '#B4BFBE', padding: 10, cornerRadius: 6 }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+}
+
+function renderBar(id, labels, data, colors) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    if (State.charts[id]) State.charts[id].destroy();
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    State.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 4 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: { color: '#0B2838', font: { weight: 'bold', size: 10 }, anchor: 'end', align: 'end' },
+                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.95)', titleColor: '#F4F6F5', bodyColor: '#B4BFBE', padding: 10, cornerRadius: 6 }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: '#EAECEC' }, border: { display: false }, beginAtZero: true }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function searchTable(id, term) {
+    const rows = document.querySelectorAll(`#${id} tbody tr`);
+    rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(term.toLowerCase()) ? '' : 'none';
+    });
+}
+
+function exportTableToExcel(tableID, filename = '') {
+    const table = document.getElementById(tableID);
+    const wb = XLSX.utils.table_to_book(table, { sheet: 'Sheet1' });
+    XLSX.writeFile(wb, filename ? filename + '.xlsx' : 'Export.xlsx');
+}
+
+// ══════════════════════════════════════════════════
+// RENDER CRITICAL TALENT (SUCESSÃO)
+// ══════════════════════════════════════════════════
+function renderCriticalTalentSuc() {
+    const data = getFilteredData();
+    const isYesVal = v => ['SIM','YES','S'].includes(String(v||'').toUpperCase().trim());
+    
+    // Filtra Critical Talents da base de liderança
+    const liderancaData = data.filter ? data.filter(r => isYesVal(r.CRITICAL_TALENT || r.criticalTalent)) : [];
+    
+    // Tenta usar o processedData se disponível
+    let crits = [];
+    if (window.State && window.State.processed && window.State.processed.lideranca) {
+        crits = window.State.processed.lideranca.filter(r =>
+            isYesVal(r.criticalTalent) || r.criticalTalent === 'SIM'
+        );
+    } else if (window.processed && window.processed.lideranca) {
+        crits = window.processed.lideranca.filter(r =>
+            isYesVal(r.criticalTalent) || r.criticalTalent === 'SIM'
+        );
+    }
+
+    if (!crits.length) {
+        // Tenta pegar do State global
+        try {
+            const allLid = (typeof State !== 'undefined' && State.raw && State.raw.lideranca) ? State.raw.lideranca :
+                           (typeof processed !== 'undefined' && processed.lideranca) ? processed.lideranca : [];
+            crits = allLid.filter(r => isYesVal(r.criticalTalent||r.CRITICAL_TALENT));
+        } catch(e) {}
+    }
+
+    const total = crits.length;
+    const comSucessor = crits.filter(r => isYesVal(r.sucessorMapeado||r.SUCESSOR_MAPEADO)).length;
+    const comPDI = crits.filter(r => isYesVal(r.pdiSistema||r.PDI_SISTEMA)).length;
+    const semPDI = total - comPDI;
+
+    // KPIs
+    const setV = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+    setV('ct-suc-total', total);
+    setV('ct-suc-total-s', 'de ' + ((typeof State !== 'undefined' && State.raw && State.raw.lideranca) ? State.raw.lideranca.length : '?') + ' líderes na base');
+    setV('ct-suc-mapped', comSucessor + ' (' + (total ? Math.round(comSucessor/total*100) : 0) + '%)');
+    setV('ct-suc-mapped-s', 'Cobertura de sucessores');
+    setV('ct-suc-pdi', comPDI + ' (' + (total ? Math.round(comPDI/total*100) : 0) + '%)');
+    setV('ct-suc-pdi-s', 'de ' + total + ' críticos');
+    setV('ct-suc-sem-pdi', semPDI);
+
+    // Tabela
+    const tbody = document.getElementById('tb-ct-suc-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!crits.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9BABAC;padding:1.5rem">Sem Critical Talents na base</td></tr>';
+        return;
+    }
+    crits.forEach(r => {
+        const nome = r.nome || r.NOME || r.lider || '—';
+        const area = r.area || r.AREA || '—';
+        const cargo = r.cargo || r.CARGO || '—';
+        const grade = r.grade || r.GRADE || '—';
+        const succ = isYesVal(r.sucessorMapeado||r.SUCESSOR_MAPEADO) ? '<span class="badge-green" style="font-size:.68rem;padding:.15rem .5rem;border-radius:4px;background:#EEF4C5;color:#4A6010">✓ Sim</span>' : '<span style="font-size:.68rem;color:#9BABAC">—</span>';
+        const ready = r.readiness || r.READINESS || '—';
+        const pdi = isYesVal(r.pdiSistema||r.PDI_SISTEMA) ? '<span style="font-size:.68rem;padding:.15rem .5rem;border-radius:4px;background:#EBF3F8;color:#105FA2">✓ Sim</span>' : '<span style="font-size:.68rem;padding:.15rem .5rem;border-radius:4px;background:#FAF0F0;color:#7D2D2D">✗ Não</span>';
+        const hrbp = r.hrbp || r.HRBP || '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="font-weight:600">${nome}</td><td>${area}</td><td>${cargo}</td><td style="text-align:center">${grade}</td><td style="text-align:center">${succ}</td><td style="text-align:center;font-size:.75rem">${ready}</td><td style="text-align:center">${pdi}</td><td>${hrbp}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function srchTable(tbId, term) {
+    document.querySelectorAll('#' + tbId + ' tbody tr').forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(term.toLowerCase()) ? '' : 'none';
+    });
+}
+
+function xportTable(tbId, name) {
+    if (typeof XLSX === 'undefined') { alert('XLSX não disponível'); return; }
+    const wb = XLSX.utils.table_to_book(document.getElementById(tbId), {sheet:'Sheet1'});
+    XLSX.writeFile(wb, (name||'Export') + '.xlsx');
+}
+
+</script>
+</body>
+</html>
